@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0] - 2026-02-25
+### Hinzugefügt
+- Agenten-System: Konfigurierbare Agenten mit eigenem System-Prompt und Modell
+- `agents.json`: Konfigurationsdatei für Agenten (assistant, coder, researcher, writer)
+- `/agent <name>` - Agent wechseln
+- `/agents` - Verfügbare Agenten auflisten
+- Jeder Claude-Aufruf nutzt den aktiven Agenten (System-Prompt, Modell)
+- `/status` zeigt aktiven Agenten und MCP-Status
+
 ## [0.4.0] - 2026-02-25
 ### Hinzugefügt
 - MCP Playwright Integration: Persistente Browser-Session über `@playwright/mcp` SSE-Server

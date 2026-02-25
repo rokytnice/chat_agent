@@ -117,20 +117,26 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
         return
     log.info("CMD /start von %s", update.effective_user.username)
+    agent = get_active_agent()
     await update.message.reply_text(
-        "Claude Code Telegram Bridge aktiv.\n\n"
-        "/claude <nachricht> - Nachricht an Claude Code senden\n"
-        "/bash <befehl> - Shell-Befehl ausführen\n"
-        "/browse <url> - Website öffnen (Screenshot + Inhalt)\n"
-        "/snap - Aktuelle Seite als Text anzeigen\n"
-        "/click <ref> - Element anklicken\n"
-        "/type <ref> | <text> - Text eingeben\n"
-        "/tabs - Offene Browser-Tabs\n"
-        "/status - Bot-Status anzeigen\n"
-        "/restart - Bot neu starten\n"
-        "Foto senden - Bild analysieren\n\n"
-        "Browser-Session bleibt persistent!\n"
-        f"Autorisierte Chat-ID: {ALLOWED_CHAT_ID}"
+        f"Claude Code Telegram Bridge aktiv.\n"
+        f"Aktiver Agent: {agent.get('emoji', '')} {agent.get('name', '?')}\n\n"
+        "--- Agenten ---\n"
+        "/agent <name> - Agent wechseln\n"
+        "/agents - Alle Agenten anzeigen\n\n"
+        "--- Claude ---\n"
+        "/claude <nachricht> - Nachricht senden\n"
+        "Freitext / Foto - Direkt an Agent\n\n"
+        "--- Browser (MCP Playwright) ---\n"
+        "/browse <url> - Website öffnen\n"
+        "/snap - Seite als Text\n"
+        "/click <ref> - Element klicken\n"
+        "/type <ref> | <text> - Eingeben\n"
+        "/tabs - Offene Tabs\n\n"
+        "--- System ---\n"
+        "/bash <befehl> - Shell ausführen\n"
+        "/status - Bot-Status\n"
+        "/restart - Bot neustarten"
     )
 
 
@@ -529,6 +535,8 @@ def main():
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("agent", cmd_agent))
+    app.add_handler(CommandHandler("agents", cmd_agents))
     app.add_handler(CommandHandler("restart", cmd_restart))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("claude", cmd_claude))
@@ -541,7 +549,8 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    log.info("=== Bot gestartet === PID=%d, Chat-ID=%d, Working Dir=%s", os.getpid(), ALLOWED_CHAT_ID, WORKING_DIR)
+    agent = get_active_agent()
+    log.info("=== Bot gestartet === PID=%d, Agent=%s, Chat-ID=%d, Working Dir=%s", os.getpid(), agent["id"], ALLOWED_CHAT_ID, WORKING_DIR)
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
