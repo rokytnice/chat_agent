@@ -76,11 +76,17 @@ def get_active_agent() -> dict:
     return {"id": "default", "name": "Standard", "emoji": "🤖", "system_prompt": "", "model": "opus"}
 
 
+MCP_CONFIG_FILE = WORKING_DIR / "mcp_config.json"
+
+
 def build_claude_cmd(prompt: str, agent: dict = None) -> list:
-    """Baut den Claude-CLI-Befehl mit Agent-System-Prompt."""
+    """Baut den Claude-CLI-Befehl mit Agent-System-Prompt und MCP Playwright."""
     if agent is None:
         agent = get_active_agent()
     cmd = ["claude", "--print", "--continue", "--dangerously-skip-permissions"]
+    # MCP Playwright SSE-Server einbinden (persistente Session auf Port 8931)
+    if MCP_CONFIG_FILE.exists():
+        cmd += ["--mcp-config", str(MCP_CONFIG_FILE)]
     system_prompt = agent.get("system_prompt", "")
     if system_prompt:
         cmd += ["--system-prompt", system_prompt]
