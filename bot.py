@@ -111,14 +111,16 @@ def save_sessions(sessions: dict):
         json.dump(sessions, f, indent=2)
 
 
-def get_session_id(agent_id: str) -> str:
-    """Gibt die Session-ID für einen Agenten zurück, erstellt neue falls nötig."""
+def get_session_info(agent_id: str) -> tuple[str, bool]:
+    """Gibt (session_id, is_new) für einen Agenten zurück."""
     sessions = load_sessions()
     if agent_id not in sessions:
-        sessions[agent_id] = str(uuid.uuid4())
+        new_id = str(uuid.uuid4())
+        sessions[agent_id] = new_id
         save_sessions(sessions)
-        log.info("Neue Session-ID für Agent '%s': %s", agent_id, sessions[agent_id])
-    return sessions[agent_id]
+        log.info("Neue Session-ID für Agent '%s': %s", agent_id, new_id)
+        return new_id, True
+    return sessions[agent_id], False
 
 
 def reset_session(agent_id: str) -> bool:
@@ -137,8 +139,11 @@ def build_claude_cmd(prompt: str, agent: dict = None) -> list:
     if agent is None:
         agent = get_active_agent()
     agent_id = agent.get("id", "default")
-    session_id = get_session_id(agent_id)
-    cmd = ["claude", "--print", "--session-id", session_id, "--dangerously-skip-permissions"]
+    session_id, is_new = get_session_info(agent_id)
+    if is_new:
+        cmd = ["claude", "--print", "--session-id", session_id, "--dangerously-skip-permissions"]
+    else:
+        cmd = ["claude", "--print", "--resume", session_id, "--dangerously-skip-permissions"]
     # MCP Playwright SSE-Server einbinden (persistente Session auf Port 8931)
     if MCP_CONFIG_FILE.exists():
         cmd += ["--mcp-config", str(MCP_CONFIG_FILE)]
