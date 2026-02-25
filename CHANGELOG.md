@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0] - 2026-02-25
+### Hinzugefügt
+- `/vorlesen <text>` - Text-to-Speech: Text als Audio-Nachricht vorlesen (Google TTS, Deutsch)
+- Auch als Reply auf eine Nachricht nutzbar: einfach `/vorlesen` auf eine bestehende Nachricht antworten
+- gTTS Dependency hinzugefügt
+
 ## [0.6.0] - 2026-02-25
 ### Hinzugefügt
 - Neuer Agent: `auditor` - Forensic Corporate Auditor für Corporate Intelligence, Bilanzanalyse und Betrugserkennung

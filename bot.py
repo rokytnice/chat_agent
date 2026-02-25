@@ -23,8 +23,6 @@ from telegram.ext import (
 )
 from telegram.constants import ChatAction
 
-import browser as mcp_browser
-
 load_dotenv(Path(__file__).parent / ".env")
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -127,12 +125,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "--- Claude ---\n"
         "/claude <nachricht> - Nachricht senden\n"
         "Freitext / Foto - Direkt an Agent\n\n"
-        "--- Browser (MCP Playwright) ---\n"
-        "/browse <url> - Website öffnen\n"
-        "/snap - Seite als Text\n"
-        "/click <ref> - Element klicken\n"
-        "/type <ref> | <text> - Eingeben\n"
-        "/tabs - Offene Tabs\n\n"
+        "--- Tools ---\n"
+        "/vorlesen <text> - Text als Audio vorlesen\n"
+        "(auch als Reply auf eine Nachricht)\n\n"
         "--- System ---\n"
         "/bash <befehl> - Shell ausführen\n"
         "/status - Bot-Status\n"
@@ -170,11 +165,9 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log.info("CMD /status von %s", update.effective_user.username)
     log_size = LOG_FILE.stat().st_size if LOG_FILE.exists() else 0
     agent = get_active_agent()
-    mcp_status = "läuft" if mcp_browser.is_mcp_running() else "gestoppt"
     await update.message.reply_text(
         f"Bot läuft.\n"
         f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
-        f"MCP Playwright: {mcp_status}\n"
         f"Chat-ID: {update.effective_chat.id}\n"
         f"Working Dir: {WORKING_DIR}\n"
         f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)"
@@ -304,121 +297,6 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Fehler: {e}")
 
 
-async def cmd_browse(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Website über MCP Playwright öffnen und Screenshot + Snapshot senden."""
-    if not is_authorized(update):
-        return
-
-    url = " ".join(context.args) if context.args else ""
-    if not url:
-        await update.message.reply_text("Verwendung: /browse <url>")
-        return
-
-    log.info("CMD /browse von %s: %s", update.effective_user.username, url)
-    await update.message.chat.send_action(ChatAction.UPLOAD_PHOTO)
-
-    try:
-        start = datetime.now()
-        img_bytes, snap_text = await mcp_browser.screenshot(url)
-        elapsed = (datetime.now() - start).total_seconds()
-        log.info("MCP Browse %s in %.1fs", url, elapsed)
-
-        if img_bytes:
-            from io import BytesIO
-            await update.message.reply_photo(
-                photo=BytesIO(img_bytes),
-                caption=f"Screenshot: {url}",
-            )
-
-        if snap_text:
-            await split_send(update, snap_text[:4000])
-    except Exception as e:
-        log.exception("MCP Browse-Fehler für %s: %s", url, e)
-        await update.message.reply_text(f"Browse-Fehler: {e}")
-
-
-async def cmd_snap(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Aktuellen Seiteninhalt als Accessibility-Snapshot anzeigen."""
-    if not is_authorized(update):
-        return
-
-    log.info("CMD /snap von %s", update.effective_user.username)
-    await update.message.chat.send_action(ChatAction.TYPING)
-
-    try:
-        snap = await mcp_browser.get_snapshot()
-        await split_send(update, snap)
-    except Exception as e:
-        log.exception("Snap-Fehler: %s", e)
-        await update.message.reply_text(f"Snap-Fehler: {e}")
-
-
-async def cmd_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Element auf der Seite anklicken (Accessibility-Ref)."""
-    if not is_authorized(update):
-        return
-
-    element = " ".join(context.args) if context.args else ""
-    if not element:
-        await update.message.reply_text("Verwendung: /click <element-ref>\nZ.B. /click link 'Anmelden'")
-        return
-
-    log.info("CMD /click von %s: %s", update.effective_user.username, element)
-    await update.message.chat.send_action(ChatAction.TYPING)
-
-    try:
-        start = datetime.now()
-        result = await mcp_browser.click(element)
-        elapsed = (datetime.now() - start).total_seconds()
-        log.info("MCP Click '%s' in %.1fs", element, elapsed)
-        await split_send(update, result[:4000])
-    except Exception as e:
-        log.exception("Click-Fehler: %s", e)
-        await update.message.reply_text(f"Click-Fehler: {e}")
-
-
-async def cmd_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Text in ein Eingabefeld tippen."""
-    if not is_authorized(update):
-        return
-
-    args_text = " ".join(context.args) if context.args else ""
-    if "|" not in args_text:
-        await update.message.reply_text("Verwendung: /type <element-ref> | <text>\nZ.B. /type textbox 'Suche' | Hello World")
-        return
-
-    parts = args_text.split("|", 1)
-    element = parts[0].strip()
-    text = parts[1].strip()
-
-    log.info("CMD /type von %s: '%s' -> '%s'", update.effective_user.username, element, text[:50])
-    await update.message.chat.send_action(ChatAction.TYPING)
-
-    try:
-        start = datetime.now()
-        result = await mcp_browser.type_text(element, text)
-        elapsed = (datetime.now() - start).total_seconds()
-        log.info("MCP Type in %.1fs", elapsed)
-        await split_send(update, result[:4000])
-    except Exception as e:
-        log.exception("Type-Fehler: %s", e)
-        await update.message.reply_text(f"Type-Fehler: {e}")
-
-
-async def cmd_tabs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Offene Browser-Tabs anzeigen."""
-    if not is_authorized(update):
-        return
-
-    log.info("CMD /tabs von %s", update.effective_user.username)
-    try:
-        result = await mcp_browser.list_tabs()
-        await split_send(update, result)
-    except Exception as e:
-        log.exception("Tabs-Fehler: %s", e)
-        await update.message.reply_text(f"Tabs-Fehler: {e}")
-
-
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Foto empfangen, speichern und von Claude analysieren lassen."""
     if not is_authorized(update):
@@ -509,6 +387,50 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Fehler: {e}")
 
 
+async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Text als Audio-Nachricht vorlesen (Text-to-Speech)."""
+    if not is_authorized(update):
+        return
+
+    text = " ".join(context.args) if context.args else ""
+
+    # Wenn als Reply auf eine Nachricht → deren Text vorlesen
+    if not text and update.message.reply_to_message:
+        text = update.message.reply_to_message.text or ""
+
+    if not text:
+        await update.message.reply_text(
+            "Verwendung:\n"
+            "/vorlesen <text> - Text vorlesen\n"
+            "Oder: Auf eine Nachricht antworten mit /vorlesen"
+        )
+        return
+
+    log.info("CMD /vorlesen von %s: %s", update.effective_user.username, text[:100])
+    await update.message.chat.send_action(ChatAction.RECORD_VOICE)
+
+    try:
+        from gtts import gTTS
+        from io import BytesIO
+
+        start = datetime.now()
+        tts = gTTS(text=text, lang="de")
+        audio_buffer = BytesIO()
+        tts.write_to_fp(audio_buffer)
+        audio_buffer.seek(0)
+        elapsed = (datetime.now() - start).total_seconds()
+
+        log.info("TTS generiert in %.1fs (%d Zeichen, %d bytes)", elapsed, len(text), audio_buffer.getbuffer().nbytes)
+
+        await update.message.reply_voice(
+            voice=audio_buffer,
+            caption=text[:200] if len(text) > 200 else None,
+        )
+    except Exception as e:
+        log.exception("Vorlesen-Fehler: %s", e)
+        await update.message.reply_text(f"Vorlesen-Fehler: {e}")
+
+
 async def post_init(application: Application):
     """Bot-Kommandos registrieren."""
     await application.bot.set_my_commands([
@@ -517,11 +439,7 @@ async def post_init(application: Application):
         BotCommand("agents", "Agenten auflisten"),
         BotCommand("claude", "Nachricht an Claude Code"),
         BotCommand("bash", "Shell-Befehl ausführen"),
-        BotCommand("browse", "Website öffnen (MCP Playwright)"),
-        BotCommand("snap", "Aktuelle Seite als Text"),
-        BotCommand("click", "Element anklicken"),
-        BotCommand("type", "Text in Feld eingeben"),
-        BotCommand("tabs", "Offene Browser-Tabs"),
+        BotCommand("vorlesen", "Text als Audio vorlesen"),
         BotCommand("status", "Bot-Status"),
         BotCommand("restart", "Bot neu starten"),
     ])
@@ -541,11 +459,7 @@ def main():
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("claude", cmd_claude))
     app.add_handler(CommandHandler("bash", cmd_bash))
-    app.add_handler(CommandHandler("browse", cmd_browse))
-    app.add_handler(CommandHandler("snap", cmd_snap))
-    app.add_handler(CommandHandler("click", cmd_click))
-    app.add_handler(CommandHandler("type", cmd_type))
-    app.add_handler(CommandHandler("tabs", cmd_tabs))
+    app.add_handler(CommandHandler("vorlesen", cmd_vorlesen))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
