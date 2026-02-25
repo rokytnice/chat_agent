@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0] - 2026-02-25
+### Hinzugefügt
+- Neuer Agent: `auditor` - Forensic Corporate Auditor für Corporate Intelligence, Bilanzanalyse und Betrugserkennung
+  - 4-Phasen-Workflow: Struktur & Vernetzung, Finanzprüfung, Reputation, Technische Infrastruktur
+  - Nutzt North Data, Bundesanzeiger, Unternehmensregister, TÜV, Trusted Shops, ViewDNS, Tellows
+  - Strukturierter Risikobericht mit Ampel-Bewertung (GRÜN/GELB/ROT)
+
 ## [0.5.0] - 2026-02-25
 ### Hinzugefügt
 - Agenten-System: Konfigurierbare Agenten mit eigenem System-Prompt und Modell
