@@ -2,8 +2,11 @@
 """Bidirektionaler Telegram-Bot als Kommunikationskanal für Claude Code."""
 
 import os
+import sys
 import asyncio
 import logging
+import subprocess
+import tempfile
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -71,9 +74,35 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/claude <nachricht> - Nachricht an Claude Code senden\n"
         "/bash <befehl> - Shell-Befehl ausführen\n"
         "/status - Bot-Status anzeigen\n"
-        "/playwright <url> - Screenshot einer Webseite\n\n"
+        "/restart - Bot neu starten\n"
+        "/playwright <url> - Screenshot einer Webseite\n"
+        "Foto senden - Bild analysieren (optional mit Caption als Anweisung)\n\n"
         f"Autorisierte Chat-ID: {ALLOWED_CHAT_ID}"
     )
+
+
+async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Bot neu starten über start.sh."""
+    if not is_authorized(update):
+        return
+
+    log.info("CMD /restart von %s", update.effective_user.username)
+    await update.message.reply_text("Bot wird neu gestartet...")
+
+    start_script = WORKING_DIR / "start.sh"
+    if not start_script.exists():
+        await update.message.reply_text("Fehler: start.sh nicht gefunden!")
+        return
+
+    # start.sh als losgelösten Prozess starten — es killt den aktuellen Bot und startet neu
+    subprocess.Popen(
+        ["/bin/bash", str(start_script)],
+        cwd=str(WORKING_DIR),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+    log.info("start.sh gestartet, Bot wird gleich beendet...")
 
 
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -207,6 +236,57 @@ async def cmd_playwright(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Playwright-Fehler: {e}")
 
 
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Foto empfangen, speichern und von Claude analysieren lassen."""
+    if not is_authorized(update):
+        return
+
+    caption = update.message.caption or "Analysiere dieses Bild detailliert. Beschreibe was du siehst."
+    log.info("Foto von %s (caption: %s)", update.effective_user.username, caption[:100])
+    await update.message.chat.send_action(ChatAction.TYPING)
+
+    # Höchste Auflösung nehmen (letztes Element in der Liste)
+    photo = update.message.photo[-1]
+    file = await photo.get_file()
+
+    # Bild in temporäre Datei speichern
+    tmp_path = WORKING_DIR / f"_tmp_photo_{update.message.message_id}.jpg"
+    try:
+        await file.download_to_drive(str(tmp_path))
+        log.info("Foto gespeichert: %s (%d bytes)", tmp_path, tmp_path.stat().st_size)
+
+        prompt = (
+            f"Lies die Bilddatei '{tmp_path}' mit dem Read-Tool und analysiere sie. "
+            f"Anweisung des Users: {caption}"
+        )
+
+        start = datetime.now()
+        proc = await asyncio.create_subprocess_exec(
+            "claude",
+            "--print",
+            "--dangerously-skip-permissions",
+            prompt,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(WORKING_DIR),
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+        elapsed = (datetime.now() - start).total_seconds()
+        output = stdout.decode().strip()
+        if stderr.decode().strip():
+            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+        log.info("Bildanalyse in %.1fs (%d Zeichen)", elapsed, len(output))
+        await split_send(update, output)
+    except asyncio.TimeoutError:
+        log.error("Timeout bei Bildanalyse")
+        await update.message.reply_text("Timeout: Bildanalyse hat nach 5 Minuten nicht geantwortet.")
+    except Exception as e:
+        log.exception("Fehler bei Bildanalyse: %s", e)
+        await update.message.reply_text(f"Fehler bei Bildanalyse: {e}")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Freitext-Nachrichten direkt an Claude Code weiterleiten."""
     if not is_authorized(update):
@@ -252,6 +332,7 @@ async def post_init(application: Application):
     """Bot-Kommandos registrieren."""
     await application.bot.set_my_commands([
         BotCommand("start", "Bot starten / Hilfe"),
+        BotCommand("restart", "Bot neu starten"),
         BotCommand("claude", "Nachricht an Claude Code"),
         BotCommand("bash", "Shell-Befehl ausführen"),
         BotCommand("playwright", "Screenshot einer URL"),
@@ -267,10 +348,12 @@ def main():
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("restart", cmd_restart))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("claude", cmd_claude))
     app.add_handler(CommandHandler("bash", cmd_bash))
     app.add_handler(CommandHandler("playwright", cmd_playwright))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     log.info("=== Bot gestartet === PID=%d, Chat-ID=%d, Working Dir=%s", os.getpid(), ALLOWED_CHAT_ID, WORKING_DIR)
