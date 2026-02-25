@@ -23,6 +23,9 @@ from telegram.ext import (
 )
 from telegram.constants import ChatAction
 
+from lib.auth import TwoFactorAuth
+from lib.worker import log_request
+
 load_dotenv(Path(__file__).parent / ".env")
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -45,8 +48,11 @@ logging.basicConfig(
 )
 log = logging.getLogger("telegram_bridge")
 
+# --- 2FA ---
+tfa = TwoFactorAuth()
+
 # --- Agenten-System ---
-AGENTS_FILE = WORKING_DIR / "agents.json"
+AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
 ACTIVE_AGENT = {}  # Wird beim Start geladen
 
 
@@ -73,10 +79,10 @@ def get_active_agent() -> dict:
         agent = agents[first_id]
         agent["id"] = first_id
         return agent
-    return {"id": "default", "name": "Standard", "emoji": "🤖", "system_prompt": "", "model": "opus"}
+    return {"id": "default", "name": "Standard", "emoji": "\U0001f916", "system_prompt": "", "model": "opus"}
 
 
-MCP_CONFIG_FILE = WORKING_DIR / "mcp_config.json"
+MCP_CONFIG_FILE = WORKING_DIR / "config" / "mcp_config.json"
 
 
 def build_claude_cmd(prompt: str, agent: dict = None) -> list:
@@ -117,11 +123,45 @@ async def split_send(update: Update, text: str):
         await update.message.reply_text(chunk)
 
 
+async def cmd_2fa(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Neuen 2FA-Code anfordern."""
+    if not is_authorized(update):
+        return
+    log.info("CMD /2fa von %s", update.effective_user.username)
+    if tfa.generate_and_send():
+        await update.message.reply_text("Neuer 2FA-Code wurde per E-Mail gesendet. Bitte eingeben:")
+    else:
+        await update.message.reply_text("Fehler beim Senden des 2FA-Codes. Prüfe SMTP-Einstellungen in .env.")
+
+
+async def handle_2fa_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Prüft 2FA-Code-Eingabe (höchste Priorität, Gruppe -1)."""
+    if not is_authorized(update):
+        return
+    if tfa.verified:
+        return  # Bereits verifiziert, normalen Flow weiterlaufen lassen
+
+    text = (update.message.text or "").strip()
+    if not text:
+        return
+
+    if tfa.check_code(text):
+        await update.message.reply_text("2FA erfolgreich! Bot ist jetzt freigeschaltet.")
+    elif tfa.is_expired:
+        await update.message.reply_text("2FA-Code abgelaufen. Nutze /2fa für einen neuen Code.")
+    else:
+        await update.message.reply_text("Falscher Code. Bitte 2FA-Code eingeben:")
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
     log.info("CMD /start von %s", update.effective_user.username)
     agent = get_active_agent()
+    await log_request(update.effective_user.username, "/start", "", agent.get("name", "?"))
     await update.message.reply_text(
         f"Claude Code Telegram Bridge aktiv.\n"
         f"Aktiver Agent: {agent.get('emoji', '')} {agent.get('name', '?')}\n\n"
@@ -136,6 +176,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "(auch als Reply auf eine Nachricht)\n\n"
         "--- System ---\n"
         "/bash <befehl> - Shell ausführen\n"
+        "/2fa - Neuen 2FA-Code anfordern\n"
         "/status - Bot-Status\n"
         "/restart - Bot neustarten"
     )
@@ -145,8 +186,12 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Bot neu starten über start.sh."""
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
 
     log.info("CMD /restart von %s", update.effective_user.username)
+    await log_request(update.effective_user.username, "/restart", "", "System")
     await update.message.reply_text("Bot wird neu gestartet...")
 
     start_script = WORKING_DIR / "start.sh"
@@ -168,21 +213,29 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
     log.info("CMD /status von %s", update.effective_user.username)
     log_size = LOG_FILE.stat().st_size if LOG_FILE.exists() else 0
     agent = get_active_agent()
+    await log_request(update.effective_user.username, "/status", "", agent.get("name", "?"))
     await update.message.reply_text(
         f"Bot läuft.\n"
         f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
         f"Chat-ID: {update.effective_chat.id}\n"
         f"Working Dir: {WORKING_DIR}\n"
-        f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)"
+        f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)\n"
+        f"2FA: verifiziert"
     )
 
 
 async def cmd_agents(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Verfügbare Agenten auflisten."""
     if not is_authorized(update):
+        return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
         return
     log.info("CMD /agents von %s", update.effective_user.username)
     config = load_agents()
@@ -191,7 +244,7 @@ async def cmd_agents(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lines = ["Verfügbare Agenten:\n"]
     for aid, agent in agents.items():
-        marker = " ← aktiv" if aid == active.get("id") else ""
+        marker = " \u2190 aktiv" if aid == active.get("id") else ""
         lines.append(f"{agent.get('emoji', '')} /{aid} - {agent.get('name', aid)}{marker}")
     lines.append(f"\nWechseln: /agent <name>")
     await update.message.reply_text("\n".join(lines))
@@ -200,6 +253,9 @@ async def cmd_agents(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Agent wechseln."""
     if not is_authorized(update):
+        return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
         return
 
     agent_id = context.args[0] if context.args else ""
@@ -220,6 +276,7 @@ async def cmd_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ACTIVE_AGENT["id"] = agent_id
     agent = agents[agent_id]
     log.info("Agent gewechselt zu: %s (%s)", agent_id, agent.get("name"))
+    await log_request(update.effective_user.username, "/agent", agent_id, agent.get("name", "?"))
     await update.message.reply_text(
         f"{agent.get('emoji', '')} Agent gewechselt: {agent.get('name', agent_id)}\n"
         f"Rolle: {agent.get('system_prompt', '')[:200]}"
@@ -230,6 +287,9 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Nachricht an Claude Code senden und Antwort zurückgeben."""
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
 
     prompt = " ".join(context.args) if context.args else ""
     if not prompt:
@@ -238,6 +298,7 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     agent = get_active_agent()
     log.info("CMD /claude [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
+    await log_request(update.effective_user.username, "/claude", prompt, agent.get("name", "?"))
     await update.message.chat.send_action(ChatAction.TYPING)
 
     try:
@@ -271,6 +332,9 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Shell-Befehl ausführen."""
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
 
     command = " ".join(context.args) if context.args else ""
     if not command:
@@ -278,6 +342,7 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     log.info("CMD /bash von %s: %s", update.effective_user.username, command[:100])
+    await log_request(update.effective_user.username, "/bash", command, "System")
     await update.message.chat.send_action(ChatAction.TYPING)
 
     try:
@@ -307,9 +372,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Foto empfangen, speichern und von Claude analysieren lassen."""
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
 
     caption = update.message.caption or "Analysiere dieses Bild detailliert. Beschreibe was du siehst."
     log.info("Foto von %s (caption: %s)", update.effective_user.username, caption[:100])
+    agent = get_active_agent()
+    await log_request(update.effective_user.username, "Foto", caption, agent.get("name", "?"))
     await update.message.chat.send_action(ChatAction.TYPING)
 
     # Höchste Auflösung nehmen (letztes Element in der Liste)
@@ -327,7 +397,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Anweisung des Users: {caption}"
         )
 
-        agent = get_active_agent()
         start = datetime.now()
         cmd = build_claude_cmd(prompt, agent)
         proc = await asyncio.create_subprocess_exec(
@@ -357,6 +426,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Freitext-Nachrichten direkt an Claude Code weiterleiten."""
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        # 2FA-Check wird in handle_2fa_check (Gruppe -1) behandelt
+        return
 
     prompt = update.message.text
     if not prompt:
@@ -364,6 +436,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     agent = get_active_agent()
     log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
+    await log_request(update.effective_user.username, "Freitext", prompt, agent.get("name", "?"))
     await update.message.chat.send_action(ChatAction.TYPING)
 
     try:
@@ -397,6 +470,9 @@ async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Text als Audio-Nachricht vorlesen (Text-to-Speech)."""
     if not is_authorized(update):
         return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
 
     text = " ".join(context.args) if context.args else ""
 
@@ -413,6 +489,7 @@ async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     log.info("CMD /vorlesen von %s: %s", update.effective_user.username, text[:100])
+    await log_request(update.effective_user.username, "/vorlesen", text, "TTS")
     await update.message.chat.send_action(ChatAction.RECORD_VOICE)
 
     try:
@@ -438,7 +515,7 @@ async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def post_init(application: Application):
-    """Bot-Kommandos registrieren."""
+    """Bot-Kommandos registrieren und 2FA starten."""
     await application.bot.set_my_commands([
         BotCommand("start", "Bot starten / Hilfe"),
         BotCommand("agent", "Agent wechseln"),
@@ -446,9 +523,16 @@ async def post_init(application: Application):
         BotCommand("claude", "Nachricht an Claude Code"),
         BotCommand("bash", "Shell-Befehl ausführen"),
         BotCommand("vorlesen", "Text als Audio vorlesen"),
+        BotCommand("2fa", "Neuen 2FA-Code anfordern"),
         BotCommand("status", "Bot-Status"),
         BotCommand("restart", "Bot neu starten"),
     ])
+    # 2FA-Code generieren und senden
+    log.info("Sende 2FA-Code per E-Mail...")
+    if tfa.generate_and_send():
+        log.info("2FA-Code gesendet. Bot wartet auf Verifizierung.")
+    else:
+        log.error("2FA-Code konnte nicht gesendet werden! Prüfe SMTP-Einstellungen.")
 
 
 def main():
@@ -458,7 +542,11 @@ def main():
 
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
 
+    # 2FA-Handler mit höchster Priorität (Gruppe -1)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_2fa_check), group=-1)
+
     app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("2fa", cmd_2fa))
     app.add_handler(CommandHandler("agent", cmd_agent))
     app.add_handler(CommandHandler("agents", cmd_agents))
     app.add_handler(CommandHandler("restart", cmd_restart))

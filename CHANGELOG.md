@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.8.0] - 2026-02-25
+### Hinzugefügt
+- **2FA per E-Mail**: Bot ist beim Start gesperrt, 6-stelliger Code wird per Gmail SMTP gesendet
+  - `/2fa` - Neuen Code anfordern (10 Min. Gültigkeit)
+  - Code-Eingabe direkt im Chat, alle Handler blockiert bis Verifizierung
+  - `lib/auth.py` - TwoFactorAuth-Klasse mit generate, send, check
+- **Worker-Bot**: `assistina_workerbot` spiegelt jeden eingehenden Request im selben Chat
+  - Formatierte Nachricht mit User, Request-Typ, Inhalt, Agent, Uhrzeit
+  - `lib/worker.py` - Async Request-Logger über separaten Bot-Token
+- **Ordner-Reorganisation**: Saubere Projektstruktur
+  - `lib/` - Python-Module (auth, browser, notifier, worker)
+  - `config/` - Konfigurationsdateien (agents.json, mcp_config.json)
+
+### Geändert
+- `bot.py`: Pfade auf `config/` umgestellt, 2FA-Guard in allen Handlern, Worker-Calls
+- `lib/browser.py`: WORKING_DIR auf parent.parent angepasst
+- `lib/notifier.py`: .env-Pfad auf parent.parent angepasst
+
+### Entfernt
+- `test_mcp.png` aufgeräumt
+
 ## [0.7.0] - 2026-02-25
 ### Hinzugefügt
 - `/vorlesen <text>` - Text-to-Speech: Text als Audio-Nachricht vorlesen (Google TTS, Deutsch)
