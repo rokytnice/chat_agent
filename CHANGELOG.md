@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0] - 2026-02-25
+### Hinzugefügt
+- MCP Playwright Integration: Persistente Browser-Session über `@playwright/mcp` SSE-Server
+- `browser.py`: MCP-Client-Modul mit navigate, screenshot, click, type_text, list_tabs, get_snapshot
+- `/browse <url>` - Website öffnen mit Screenshot + Accessibility-Snapshot
+- `/snap` - Aktuelle Seite als strukturierten Text anzeigen
+- `/click <ref>` - Element per Accessibility-Ref anklicken
+- `/type <ref> | <text>` - Text in Eingabefeld tippen
+- `/tabs` - Offene Browser-Tabs auflisten
+- `start.sh` startet jetzt auch MCP Playwright Server (Port 8931, headless, shared context)
+- `/status` zeigt MCP Server-Status an
+
+### Geändert
+- `/playwright` durch `/browse` ersetzt (nutzt jetzt MCP statt direktem Playwright)
+- Browser-Session bleibt persistent zwischen Anfragen (shared-browser-context)
+
+## [0.3.0] - 2026-02-25
+### Geändert
+- Persistente Claude-Session: Alle Claude-Aufrufe (`/claude`, Freitext, Bildanalyse) verwenden jetzt `--continue`, sodass immer dieselbe Session fortgeführt wird und der Kontext erhalten bleibt
+
 ## [0.2.0] - 2026-02-25
 ### Hinzugefügt
 - Foto-Analyse: Bilder über Telegram senden, Claude analysiert sie

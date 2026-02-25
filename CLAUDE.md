@@ -1,3 +1,4 @@
 du darfst den bot niemals selber  starten   
 niemals .env teilen oder committen
-neimals secrets im project speichern
+niemals secrets im project speichern
+Jedes Feature soll in einer Change Lock der Zeit dokumentiert werden, immer. 

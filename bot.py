@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bidirektionaler Telegram-Bot als Kommunikationskanal für Claude Code."""
 
+import json
 import os
 import sys
 import asyncio
@@ -21,6 +22,8 @@ from telegram.ext import (
     ContextTypes,
 )
 from telegram.constants import ChatAction
+
+import browser as mcp_browser
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -43,6 +46,51 @@ logging.basicConfig(
     ],
 )
 log = logging.getLogger("telegram_bridge")
+
+# --- Agenten-System ---
+AGENTS_FILE = WORKING_DIR / "agents.json"
+ACTIVE_AGENT = {}  # Wird beim Start geladen
+
+
+def load_agents() -> dict:
+    """Lädt die Agenten-Konfiguration aus agents.json."""
+    if not AGENTS_FILE.exists():
+        return {"default": "assistant", "agents": {}}
+    with open(AGENTS_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_active_agent() -> dict:
+    """Gibt den aktiven Agenten zurück."""
+    config = load_agents()
+    agent_id = ACTIVE_AGENT.get("id", config.get("default", "assistant"))
+    agents = config.get("agents", {})
+    if agent_id in agents:
+        agent = agents[agent_id]
+        agent["id"] = agent_id
+        return agent
+    # Fallback: erster Agent oder leer
+    if agents:
+        first_id = next(iter(agents))
+        agent = agents[first_id]
+        agent["id"] = first_id
+        return agent
+    return {"id": "default", "name": "Standard", "emoji": "🤖", "system_prompt": "", "model": "opus"}
+
+
+def build_claude_cmd(prompt: str, agent: dict = None) -> list:
+    """Baut den Claude-CLI-Befehl mit Agent-System-Prompt."""
+    if agent is None:
+        agent = get_active_agent()
+    cmd = ["claude", "--print", "--continue", "--dangerously-skip-permissions"]
+    system_prompt = agent.get("system_prompt", "")
+    if system_prompt:
+        cmd += ["--system-prompt", system_prompt]
+    model = agent.get("model")
+    if model:
+        cmd += ["--model", model]
+    cmd.append(prompt)
+    return cmd
 
 
 def is_authorized(update: Update) -> bool:
@@ -73,10 +121,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Claude Code Telegram Bridge aktiv.\n\n"
         "/claude <nachricht> - Nachricht an Claude Code senden\n"
         "/bash <befehl> - Shell-Befehl ausführen\n"
+        "/browse <url> - Website öffnen (Screenshot + Inhalt)\n"
+        "/snap - Aktuelle Seite als Text anzeigen\n"
+        "/click <ref> - Element anklicken\n"
+        "/type <ref> | <text> - Text eingeben\n"
+        "/tabs - Offene Browser-Tabs\n"
         "/status - Bot-Status anzeigen\n"
         "/restart - Bot neu starten\n"
-        "/playwright <url> - Screenshot einer Webseite\n"
-        "Foto senden - Bild analysieren (optional mit Caption als Anweisung)\n\n"
+        "Foto senden - Bild analysieren\n\n"
+        "Browser-Session bleibt persistent!\n"
         f"Autorisierte Chat-ID: {ALLOWED_CHAT_ID}"
     )
 
@@ -110,11 +163,61 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     log.info("CMD /status von %s", update.effective_user.username)
     log_size = LOG_FILE.stat().st_size if LOG_FILE.exists() else 0
+    agent = get_active_agent()
+    mcp_status = "läuft" if mcp_browser.is_mcp_running() else "gestoppt"
     await update.message.reply_text(
         f"Bot läuft.\n"
+        f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
+        f"MCP Playwright: {mcp_status}\n"
         f"Chat-ID: {update.effective_chat.id}\n"
         f"Working Dir: {WORKING_DIR}\n"
         f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)"
+    )
+
+
+async def cmd_agents(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Verfügbare Agenten auflisten."""
+    if not is_authorized(update):
+        return
+    log.info("CMD /agents von %s", update.effective_user.username)
+    config = load_agents()
+    agents = config.get("agents", {})
+    active = get_active_agent()
+
+    lines = ["Verfügbare Agenten:\n"]
+    for aid, agent in agents.items():
+        marker = " ← aktiv" if aid == active.get("id") else ""
+        lines.append(f"{agent.get('emoji', '')} /{aid} - {agent.get('name', aid)}{marker}")
+    lines.append(f"\nWechseln: /agent <name>")
+    await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Agent wechseln."""
+    if not is_authorized(update):
+        return
+
+    agent_id = context.args[0] if context.args else ""
+    if not agent_id:
+        await cmd_agents(update, context)
+        return
+
+    config = load_agents()
+    agents = config.get("agents", {})
+
+    if agent_id not in agents:
+        await update.message.reply_text(
+            f"Agent '{agent_id}' nicht gefunden.\n"
+            f"Verfügbar: {', '.join(agents.keys())}"
+        )
+        return
+
+    ACTIVE_AGENT["id"] = agent_id
+    agent = agents[agent_id]
+    log.info("Agent gewechselt zu: %s (%s)", agent_id, agent.get("name"))
+    await update.message.reply_text(
+        f"{agent.get('emoji', '')} Agent gewechselt: {agent.get('name', agent_id)}\n"
+        f"Rolle: {agent.get('system_prompt', '')[:200]}"
     )
 
 
@@ -128,16 +231,15 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Verwendung: /claude <deine Nachricht>")
         return
 
-    log.info("CMD /claude von %s: %s", update.effective_user.username, prompt[:100])
+    agent = get_active_agent()
+    log.info("CMD /claude [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await update.message.chat.send_action(ChatAction.TYPING)
 
     try:
         start = datetime.now()
+        cmd = build_claude_cmd(prompt, agent)
         proc = await asyncio.create_subprocess_exec(
-            "claude",
-            "--print",
-            "--dangerously-skip-permissions",
-            prompt,
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(WORKING_DIR),
@@ -147,7 +249,7 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
         output = stdout.decode().strip()
         if stderr.decode().strip():
             output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Claude antwortete in %.1fs (%d Zeichen)", elapsed, len(output))
+        log.info("Claude [%s] antwortete in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
         await split_send(update, output)
     except asyncio.TimeoutError:
         log.error("Claude Timeout nach 300s für: %s", prompt[:100])
@@ -196,44 +298,119 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Fehler: {e}")
 
 
-async def cmd_playwright(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Screenshot einer Webseite mit Playwright erstellen und senden."""
+async def cmd_browse(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Website über MCP Playwright öffnen und Screenshot + Snapshot senden."""
     if not is_authorized(update):
         return
 
     url = " ".join(context.args) if context.args else ""
     if not url:
-        await update.message.reply_text("Verwendung: /playwright <url>")
+        await update.message.reply_text("Verwendung: /browse <url>")
         return
 
-    if not url.startswith(("http://", "https://")):
-        url = "https://" + url
-
-    log.info("CMD /playwright von %s: %s", update.effective_user.username, url)
+    log.info("CMD /browse von %s: %s", update.effective_user.username, url)
     await update.message.chat.send_action(ChatAction.UPLOAD_PHOTO)
 
     try:
-        from playwright.async_api import async_playwright
-
         start = datetime.now()
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page(viewport={"width": 1280, "height": 900})
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-            screenshot_path = WORKING_DIR / "screenshot.png"
-            await page.screenshot(path=str(screenshot_path), full_page=False)
-            await browser.close()
+        img_bytes, snap_text = await mcp_browser.screenshot(url)
         elapsed = (datetime.now() - start).total_seconds()
-        log.info("Playwright Screenshot von %s in %.1fs", url, elapsed)
+        log.info("MCP Browse %s in %.1fs", url, elapsed)
 
-        await update.message.reply_photo(
-            photo=open(screenshot_path, "rb"),
-            caption=f"Screenshot: {url}",
-        )
-        screenshot_path.unlink(missing_ok=True)
+        if img_bytes:
+            from io import BytesIO
+            await update.message.reply_photo(
+                photo=BytesIO(img_bytes),
+                caption=f"Screenshot: {url}",
+            )
+
+        if snap_text:
+            await split_send(update, snap_text[:4000])
     except Exception as e:
-        log.exception("Playwright-Fehler für %s: %s", url, e)
-        await update.message.reply_text(f"Playwright-Fehler: {e}")
+        log.exception("MCP Browse-Fehler für %s: %s", url, e)
+        await update.message.reply_text(f"Browse-Fehler: {e}")
+
+
+async def cmd_snap(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Aktuellen Seiteninhalt als Accessibility-Snapshot anzeigen."""
+    if not is_authorized(update):
+        return
+
+    log.info("CMD /snap von %s", update.effective_user.username)
+    await update.message.chat.send_action(ChatAction.TYPING)
+
+    try:
+        snap = await mcp_browser.get_snapshot()
+        await split_send(update, snap)
+    except Exception as e:
+        log.exception("Snap-Fehler: %s", e)
+        await update.message.reply_text(f"Snap-Fehler: {e}")
+
+
+async def cmd_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Element auf der Seite anklicken (Accessibility-Ref)."""
+    if not is_authorized(update):
+        return
+
+    element = " ".join(context.args) if context.args else ""
+    if not element:
+        await update.message.reply_text("Verwendung: /click <element-ref>\nZ.B. /click link 'Anmelden'")
+        return
+
+    log.info("CMD /click von %s: %s", update.effective_user.username, element)
+    await update.message.chat.send_action(ChatAction.TYPING)
+
+    try:
+        start = datetime.now()
+        result = await mcp_browser.click(element)
+        elapsed = (datetime.now() - start).total_seconds()
+        log.info("MCP Click '%s' in %.1fs", element, elapsed)
+        await split_send(update, result[:4000])
+    except Exception as e:
+        log.exception("Click-Fehler: %s", e)
+        await update.message.reply_text(f"Click-Fehler: {e}")
+
+
+async def cmd_type(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Text in ein Eingabefeld tippen."""
+    if not is_authorized(update):
+        return
+
+    args_text = " ".join(context.args) if context.args else ""
+    if "|" not in args_text:
+        await update.message.reply_text("Verwendung: /type <element-ref> | <text>\nZ.B. /type textbox 'Suche' | Hello World")
+        return
+
+    parts = args_text.split("|", 1)
+    element = parts[0].strip()
+    text = parts[1].strip()
+
+    log.info("CMD /type von %s: '%s' -> '%s'", update.effective_user.username, element, text[:50])
+    await update.message.chat.send_action(ChatAction.TYPING)
+
+    try:
+        start = datetime.now()
+        result = await mcp_browser.type_text(element, text)
+        elapsed = (datetime.now() - start).total_seconds()
+        log.info("MCP Type in %.1fs", elapsed)
+        await split_send(update, result[:4000])
+    except Exception as e:
+        log.exception("Type-Fehler: %s", e)
+        await update.message.reply_text(f"Type-Fehler: {e}")
+
+
+async def cmd_tabs(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Offene Browser-Tabs anzeigen."""
+    if not is_authorized(update):
+        return
+
+    log.info("CMD /tabs von %s", update.effective_user.username)
+    try:
+        result = await mcp_browser.list_tabs()
+        await split_send(update, result)
+    except Exception as e:
+        log.exception("Tabs-Fehler: %s", e)
+        await update.message.reply_text(f"Tabs-Fehler: {e}")
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -260,12 +437,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Anweisung des Users: {caption}"
         )
 
+        agent = get_active_agent()
         start = datetime.now()
+        cmd = build_claude_cmd(prompt, agent)
         proc = await asyncio.create_subprocess_exec(
-            "claude",
-            "--print",
-            "--dangerously-skip-permissions",
-            prompt,
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(WORKING_DIR),
@@ -275,7 +451,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         output = stdout.decode().strip()
         if stderr.decode().strip():
             output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Bildanalyse in %.1fs (%d Zeichen)", elapsed, len(output))
+        log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
         await split_send(update, output)
     except asyncio.TimeoutError:
         log.error("Timeout bei Bildanalyse")
@@ -296,16 +472,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not prompt:
         return
 
-    log.info("Freitext von %s: %s", update.effective_user.username, prompt[:100])
+    agent = get_active_agent()
+    log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await update.message.chat.send_action(ChatAction.TYPING)
 
     try:
         start = datetime.now()
+        cmd = build_claude_cmd(prompt, agent)
         proc = await asyncio.create_subprocess_exec(
-            "claude",
-            "--print",
-            "--dangerously-skip-permissions",
-            prompt,
+            *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=str(WORKING_DIR),
@@ -315,7 +490,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         output = stdout.decode().strip()
         if stderr.decode().strip():
             output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Claude antwortete in %.1fs (%d Zeichen)", elapsed, len(output))
+        log.info("Claude [%s] antwortete in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
         await split_send(update, output)
     except asyncio.TimeoutError:
         log.error("Claude Timeout für Freitext: %s", prompt[:100])
@@ -332,11 +507,17 @@ async def post_init(application: Application):
     """Bot-Kommandos registrieren."""
     await application.bot.set_my_commands([
         BotCommand("start", "Bot starten / Hilfe"),
-        BotCommand("restart", "Bot neu starten"),
+        BotCommand("agent", "Agent wechseln"),
+        BotCommand("agents", "Agenten auflisten"),
         BotCommand("claude", "Nachricht an Claude Code"),
         BotCommand("bash", "Shell-Befehl ausführen"),
-        BotCommand("playwright", "Screenshot einer URL"),
+        BotCommand("browse", "Website öffnen (MCP Playwright)"),
+        BotCommand("snap", "Aktuelle Seite als Text"),
+        BotCommand("click", "Element anklicken"),
+        BotCommand("type", "Text in Feld eingeben"),
+        BotCommand("tabs", "Offene Browser-Tabs"),
         BotCommand("status", "Bot-Status"),
+        BotCommand("restart", "Bot neu starten"),
     ])
 
 
@@ -352,7 +533,11 @@ def main():
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("claude", cmd_claude))
     app.add_handler(CommandHandler("bash", cmd_bash))
-    app.add_handler(CommandHandler("playwright", cmd_playwright))
+    app.add_handler(CommandHandler("browse", cmd_browse))
+    app.add_handler(CommandHandler("snap", cmd_snap))
+    app.add_handler(CommandHandler("click", cmd_click))
+    app.add_handler(CommandHandler("type", cmd_type))
+    app.add_handler(CommandHandler("tabs", cmd_tabs))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

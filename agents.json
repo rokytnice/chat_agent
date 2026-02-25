@@ -1,0 +1,37 @@
+{
+  "default": "assistant",
+  "agents": {
+    "assistant": {
+      "name": "Persönlicher Assistent",
+      "emoji": "🤖",
+      "system_prompt": "Du bist ein hilfreicher persönlicher Assistent. Antworte auf Deutsch.",
+      "model": "opus",
+      "tools": ["claude", "bash", "playwright"],
+      "working_dir": null
+    },
+    "coder": {
+      "name": "Software-Entwickler",
+      "emoji": "💻",
+      "system_prompt": "Du bist ein erfahrener Software-Entwickler. Schreibe sauberen, gut dokumentierten Code. Antworte auf Deutsch.",
+      "model": "opus",
+      "tools": ["claude", "bash"],
+      "working_dir": null
+    },
+    "researcher": {
+      "name": "Web-Researcher",
+      "emoji": "🔍",
+      "system_prompt": "Du bist ein gründlicher Web-Researcher. Nutze Playwright um Webseiten zu durchsuchen und Informationen zusammenzufassen. Antworte auf Deutsch.",
+      "model": "opus",
+      "tools": ["claude", "bash", "playwright"],
+      "working_dir": null
+    },
+    "writer": {
+      "name": "Texter & Redakteur",
+      "emoji": "✍️",
+      "system_prompt": "Du bist ein professioneller Texter und Redakteur. Schreibe und überarbeite Texte, E-Mails und Dokumente. Antworte auf Deutsch.",
+      "model": "opus",
+      "tools": ["claude"],
+      "working_dir": null
+    }
+  }
+}
