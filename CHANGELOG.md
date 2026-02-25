@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.1] - 2026-02-25
+### Hinzugefügt
+- **Persistente Sessions**: Claude-Konversationen überleben Bot-Neustarts
+  - Feste Session-ID (UUID) pro Agent, gespeichert in `data/sessions.json`
+  - `--continue` ersetzt durch `--session-id <uuid>` für zuverlässige Persistenz
+  - `/newsession` - Session zurücksetzen, nächste Nachricht startet frische Konversation
+  - Session-Verwaltung: `load_sessions()`, `get_session_id()`, `reset_session()`
+  - `data/` Ordner wird beim Start automatisch erstellt
+
 ## [0.8.0] - 2026-02-25
 ### Hinzugefügt
 - **2FA per E-Mail**: Bot ist beim Start gesperrt, 6-stelliger Code wird per Gmail SMTP gesendet
