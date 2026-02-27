@@ -4,3 +4,4 @@ playwright==1.49.1
 mcp[cli]>=1.26.0
 requests
 gTTS>=2.5.0
+chromadb>=0.4.0
