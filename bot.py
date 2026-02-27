@@ -28,6 +28,7 @@ from telegram.constants import ChatAction
 from lib.auth import TwoFactorAuth
 from lib.worker import log_request
 from lib.rag_integration import RAGIntegration
+from lib.scheduler import TaskScheduler
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -50,11 +51,8 @@ log.setLevel(logging.INFO)
 # Nur Handler hinzufügen wenn noch keine vorhanden (verhindert Dopplungen)
 if not log.handlers:
     _formatter = logging.Formatter(LOG_FORMAT)
-    _sh = logging.StreamHandler()
-    _sh.setFormatter(_formatter)
     _fh = RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=3, encoding="utf-8")
     _fh.setFormatter(_formatter)
-    log.addHandler(_sh)
     log.addHandler(_fh)
 
 # Root-Logger ruhigstellen (keine doppelten Einträge)
@@ -65,6 +63,9 @@ tfa = TwoFactorAuth()
 
 # --- RAG (Retrieval-Augmented Generation) ---
 rag = RAGIntegration()
+
+# --- Scheduler ---
+scheduler: TaskScheduler = None  # Wird in post_init gestartet
 
 # --- Agenten-System ---
 AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
@@ -341,13 +342,15 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log.info("[/status] Agent=%s, Log=%.1fKB", agent.get("name", "?"), log_size / 1024)
     await log_request(update.effective_user.username, "/status", "", agent.get("name", "?"))
     log.info("[/status] Antwort gesendet")
+    scheduler_info = scheduler.get_status() if scheduler else "Scheduler: nicht initialisiert"
     await update.message.reply_text(
         f"Bot läuft.\n"
         f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
         f"Chat-ID: {update.effective_chat.id}\n"
         f"Working Dir: {WORKING_DIR}\n"
         f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)\n"
-        f"2FA: verifiziert"
+        f"2FA: verifiziert\n\n"
+        f"{scheduler_info}"
     )
 
 
@@ -714,8 +717,56 @@ async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Vorlesen-Fehler: {e}")
 
 
+async def cmd_scheduler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Scheduler-Status und Steuerung: /scheduler [status|pause|resume|run <task_id>]"""
+    if not is_authorized(update):
+        return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
+
+    arg = context.args[0] if context.args else "status"
+
+    if arg == "status":
+        await update.message.reply_text(scheduler.get_status())
+
+    elif arg == "pause":
+        scheduler.stop()
+        log.info("[/scheduler] Scheduler pausiert von %s", update.effective_user.username)
+        await update.message.reply_text("⏸️ Scheduler pausiert.")
+
+    elif arg == "resume":
+        scheduler.start()
+        log.info("[/scheduler] Scheduler fortgesetzt von %s", update.effective_user.username)
+        await update.message.reply_text("▶️ Scheduler fortgesetzt.")
+
+    elif arg == "run":
+        # /scheduler run <task_id> → Task sofort ausführen
+        task_id = context.args[1] if len(context.args) > 1 else None
+        if not task_id:
+            await update.message.reply_text("Verwendung: /scheduler run <task_id>")
+            return
+        scheduler.run_now(task_id)
+        log.info("[/scheduler] Task '%s' manuell getriggert von %s", task_id, update.effective_user.username)
+        await update.message.reply_text(f"🔄 Task '{task_id}' wird beim nächsten Zyklus ausgeführt (~60s).")
+
+    else:
+        await update.message.reply_text(
+            "⏰ Scheduler-Befehle:\n"
+            "/scheduler status - Alle Tasks anzeigen\n"
+            "/scheduler pause - Scheduler pausieren\n"
+            "/scheduler resume - Scheduler fortsetzen\n"
+            "/scheduler run <task_id> - Task sofort ausführen"
+        )
+
+
+async def error_handler(update, context):
+    """Fehlerbehandlung für Telegram-Fehler (besonders Netzwerkfehler)."""
+    log.error("Telegram Fehler: %s", context.error, exc_info=context.error)
+
+
 async def post_init(application: Application):
-    """Bot-Kommandos registrieren und 2FA starten."""
+    """Bot-Kommandos registrieren, 2FA starten und Scheduler initialisieren."""
     await application.bot.set_my_commands([
         BotCommand("start", "Bot starten / Hilfe"),
         BotCommand("agent", "Agent wechseln"),
@@ -724,6 +775,7 @@ async def post_init(application: Application):
         BotCommand("bash", "Shell-Befehl ausführen"),
         BotCommand("vorlesen", "Text als Audio vorlesen"),
         BotCommand("newsession", "Frische Konversation starten"),
+        BotCommand("scheduler", "Scheduler-Status & Steuerung"),
         BotCommand("2fa", "Neuen 2FA-Code anfordern"),
         BotCommand("status", "Bot-Status"),
         BotCommand("restart", "Bot neu starten"),
@@ -735,6 +787,24 @@ async def post_init(application: Application):
     else:
         log.error("2FA-Code konnte nicht gesendet werden! Prüfe SMTP-Einstellungen.")
 
+    # --- Scheduler starten ---
+    global scheduler
+
+    async def scheduler_send(text: str):
+        """Sendet Scheduler-Ergebnisse an den Telegram-Chat."""
+        for i in range(0, len(text), 4000):
+            chunk = text[i: i + 4000]
+            await application.bot.send_message(
+                chat_id=ALLOWED_CHAT_ID, text=chunk
+            )
+
+    scheduler = TaskScheduler(
+        build_claude_cmd_fn=build_claude_cmd,
+        send_message_fn=scheduler_send,
+    )
+    scheduler.start()
+    log.info("⏰ Scheduler initialisiert und gestartet")
+
 
 def main():
     if not BOT_TOKEN:
@@ -742,6 +812,9 @@ def main():
         return
 
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+
+    # Error-Handler für Netzwerk- und andere Fehler
+    app.add_error_handler(error_handler)
 
     # 2FA-Handler mit höchster Priorität (Gruppe -1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_2fa_check), group=-1)
@@ -756,6 +829,7 @@ def main():
     app.add_handler(CommandHandler("bash", cmd_bash))
     app.add_handler(CommandHandler("vorlesen", cmd_vorlesen))
     app.add_handler(CommandHandler("newsession", cmd_newsession))
+    app.add_handler(CommandHandler("scheduler", cmd_scheduler))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

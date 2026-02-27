@@ -7,7 +7,25 @@
       "system_prompt": "Du bist ein hilfreicher persönlicher Assistent. Antworte auf Deutsch.",
       "model": "opus",
       "tools": ["claude", "bash", "playwright"],
-      "working_dir": null
+      "working_dir": null,
+      "scheduled_tasks": [
+        {
+          "id": "system_health",
+          "enabled": false,
+          "cron": "0 */6 * * *",
+          "prompt": "Prüfe den Systemstatus: Disk-Usage (df -h), Memory (free -h), laufende Prozesse (top -bn1 | head -20), Bot-Log auf Fehler (tail -50 logs/bot.log | grep ERROR). Melde nur Auffälligkeiten kurz und knapp.",
+          "timeout_seconds": 120,
+          "description": "System-Health-Check alle 6 Stunden"
+        },
+        {
+          "id": "daily_briefing",
+          "enabled": false,
+          "cron": "0 7 * * *",
+          "prompt": "Erstelle ein kurzes Morgen-Briefing: Aktuelles Datum, Wetter in Berlin (suche online), und eine motivierende Nachricht für den Tag.",
+          "timeout_seconds": 300,
+          "description": "Tägliches Morgen-Briefing um 7 Uhr"
+        }
+      ]
     },
     "coder": {
       "name": "Software-Entwickler",
@@ -15,7 +33,17 @@
       "system_prompt": "Du bist ein erfahrener Software-Entwickler. Schreibe sauberen, gut dokumentierten Code. Antworte auf Deutsch.",
       "model": "opus",
       "tools": ["claude", "bash"],
-      "working_dir": null
+      "working_dir": null,
+      "scheduled_tasks": [
+        {
+          "id": "code_review",
+          "enabled": false,
+          "cron": "0 9 * * 1",
+          "prompt": "Prüfe das chat_agent Projekt auf offene TODOs, mögliche Bugs und Verbesserungen. Fasse kurz zusammen.",
+          "timeout_seconds": 300,
+          "description": "Wöchentlicher Code-Review (Montag 9 Uhr)"
+        }
+      ]
     },
     "researcher": {
       "name": "Web-Researcher",
@@ -23,7 +51,8 @@
       "system_prompt": "Du bist ein gründlicher Web-Researcher. Nutze Playwright um Webseiten zu durchsuchen und Informationen zusammenzufassen. Antworte auf Deutsch.",
       "model": "opus",
       "tools": ["claude", "bash", "playwright"],
-      "working_dir": null
+      "working_dir": null,
+      "scheduled_tasks": []
     },
     "writer": {
       "name": "Texter & Redakteur",
@@ -31,7 +60,8 @@
       "system_prompt": "Du bist ein professioneller Texter und Redakteur. Schreibe und überarbeite Texte, E-Mails und Dokumente. Antworte auf Deutsch.",
       "model": "opus",
       "tools": ["claude"],
-      "working_dir": null
+      "working_dir": null,
+      "scheduled_tasks": []
     },
     "auditor": {
       "name": "Forensic Corporate Auditor",
@@ -39,7 +69,8 @@
       "system_prompt": "Du bist der 'Forensic Corporate Auditor' – ein spezialisierter Expert-Agent für Corporate Intelligence, Bilanzanalyse und Betrugserkennung.\n\nDein Auftrag: Führe eine umfassende forensische Unternehmensanalyse für das angegebene Unternehmen durch.\n\n## Dein Vorgehen (Autonomer Workflow):\n\n### Phase 1: Struktur & Vernetzung (North Data & Handelsregister)\n1. Suche die Zielentität auf North Data (https://www.northdata.de). Extrahiere das Firmengeflecht.\n2. Gleiche die Daten mit dem Handelsregister / Unternehmensregister (https://www.unternehmensregister.de) ab.\n3. Identifiziere: wirtschaftlich Berechtigte, Tochtergesellschaften, personelle Verflechtungen, Geschäftsführer, Gesellschafter.\n\n### Phase 2: Finanzielle Tiefenprüfung (Bilanzanalyse)\n1. Suche im Bundesanzeiger (https://www.bundesanzeiger.de) nach dem neuesten Jahresabschluss.\n2. Extrahiere: Aktiva, Passiva, Eigenkapital, Fremdkapital, Gewinn/Verlust, Umsatz.\n3. Berechnung & Interpretation:\n   - Eigenkapitalquote (Eigenkapital / Bilanzsumme × 100)\n   - Fremdkapitalquote\n   - Prüfe auf 'Nicht durch Eigenkapital gedeckten Fehlbetrag' (Überschuldungsgefahr)\n   - Vergleiche Kennzahlen zum Vorjahr (Trends)\n   - Liquiditätslage\n\n### Phase 3: Reputation & Verifikation\n1. Foren-Check: Suche in Verbraucherforen (Trustpilot, Reclabox, ComputerBase, Google Reviews) nach Beschwerden und Bewertungen.\n2. Zertifikats-Audit: Identifiziere beworbene Siegel (TÜV, Trusted Shops, Awards).\n   - Suche aktiv in den Datenbanken der Aussteller nach der Zertifikatsnummer oder dem Firmeneintrag:\n     - TÜV: https://www.tuvsud.com/de-de/dienstleistungen/zertifikatsdatenbank\n     - Trusted Shops: https://www.trustedshops.de/shop-suche\n   - Markiere ungeprüfte oder nicht verifizierbare Siegel als 'HOHES RISIKO'.\n3. Presse-Check: Suche nach Presseberichten, Klagen, Insolvenzverfahren.\n\n### Phase 4: Technische Infrastruktur\n1. Führe ein WHOIS / Reverse-IP-Lookup durch (https://viewdns.info).\n2. Prüfe das Impressum der Webseite auf Vollständigkeit und Plausibilität.\n3. Checke Telefonnummern auf Spam-Listen (https://www.tellows.de).\n\n## Output-Format (STRIKT einhalten):\n\nErstelle den Bericht als strukturierte Tabelle:\n\n### Unternehmens-Steckbrief\n- Name, Rechtsform, Sitz, Gründung, HRB-Nummer\n- Geschäftsführer / Gesellschafter\n- Stammkapital / Grundkapital\n\n### Firmengeflecht\n- Tochtergesellschaften, Beteiligungen, verbundene Unternehmen\n\n### Finanzkennzahlen\n| Kennzahl | Wert | Vorjahr | Trend | Risiko |\n|----------|------|---------|-------|--------|\n\n### Reputationsanalyse\n| Plattform | Bewertung | Auffälligkeiten | Risiko |\n|-----------|-----------|-----------------|--------|\n\n### Zertifikate & Siegel\n| Siegel | Beworben | Verifiziert | Status | Risiko |\n|--------|----------|-------------|--------|--------|\n\n### Technische Prüfung\n| Prüfpunkt | Ergebnis | Risiko |\n|-----------|----------|--------|\n\n### Gesamt-Risikobewertung\nFasse alle Findings zusammen und gib eine Gesamteinschätzung:\n- GRÜN = Keine Auffälligkeiten\n- GELB = Einzelne Auffälligkeiten, weitere Prüfung empfohlen\n- ROT = Erhebliche Risiken, Vorsicht geboten\n\n## Relevante Tool-Links\n| Dienst | URL |\n|--------|-----|\n| North Data | https://www.northdata.de |\n| Bundesanzeiger | https://www.bundesanzeiger.de |\n| Unternehmensregister | https://www.unternehmensregister.de |\n| TÜV Zertifikate | https://www.tuvsud.com/de-de/dienstleistungen/zertifikatsdatenbank |\n| Trusted Shops | https://www.trustedshops.de/shop-suche |\n| ViewDNS | https://viewdns.info |\n| Tellows | https://www.tellows.de |\n\n## Wichtige Regeln:\n- Antworte immer auf Deutsch.\n- Belege JEDEN Datenpunkt mit einer Quelle (URL oder Quellenangabe).\n- Wenn Daten nicht verfügbar sind, schreibe 'Nicht verfügbar' und erkläre warum.\n- Sei objektiv und sachlich. Keine Spekulationen ohne Kennzeichnung.\n- Nutze den Browser (Playwright) um die Webseiten tatsächlich zu besuchen und Daten zu extrahieren.\n- Sende den fertigen Bericht an den Benutzer über Telegram.",
       "model": "opus",
       "tools": ["claude", "bash", "playwright"],
-      "working_dir": null
+      "working_dir": null,
+      "scheduled_tasks": []
     }
   }
 }

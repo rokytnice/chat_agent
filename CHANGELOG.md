@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.10.0] - 2026-02-27
+### Hinzugefügt
+- **Zyklischer Task-Scheduler**: Automatische Ausführung wiederkehrender Agenten-Aufgaben
+  - `lib/scheduler.py` - Core Scheduler-Modul mit Cron-Parser
+    - Läuft als asyncio-Task im Bot-Event-Loop (kein separater Prozess)
+    - Prüft alle 60 Sekunden welche Tasks fällig sind
+    - Cron-Syntax: Minute, Stunde, Tag, Monat, Wochentag (z.B. `0 7 * * *`)
+    - Unterstützt: `*`, Einzelwerte, Step (`*/15`), Bereiche (`9-17`), Listen (`1,5,10`)
+    - Hot-Reload: `config/agents.json` wird bei jedem Zyklus neu geladen
+    - State-Persistenz: `data/scheduler_state.json` (überlebt Bot-Neustarts)
+    - Fehler-Isolation: Ein fehlender Task blockiert keine anderen
+    - Timeout pro Task konfigurierbar
+  - **Cron-Config direkt in `agents.json`** pro Agent:
+    - Jeder Agent kann `scheduled_tasks` Array mit Cron-Jobs haben
+    - Felder: `id`, `enabled`, `cron`, `prompt`, `timeout_seconds`, `description`
+    - Beispiel-Tasks: System-Health-Check (alle 6h), Morgen-Briefing (7 Uhr), Code-Review (Mo 9 Uhr)
+  - **`/scheduler` Telegram-Command**:
+    - `/scheduler status` - Alle Tasks mit Status, letztem Lauf, Run-Count anzeigen
+    - `/scheduler pause` - Scheduler pausieren
+    - `/scheduler resume` - Scheduler fortsetzen
+    - `/scheduler run <task_id>` - Task sofort beim nächsten Zyklus ausführen
+  - `/status` zeigt jetzt auch Scheduler-Status an
+  - Task-Ergebnisse werden automatisch via Telegram gesendet
+  - RAG-Kontext wird automatisch bei Scheduler-Tasks angereichert
+
+## [0.9.1] - 2026-02-27
+### Behoben
+- **Logging-Duplikate**: StreamHandler entfernt - doppelte Log-Einträge durch simultanes Schreiben auf Konsole und Datei behoben
+- **Fehlerbehandlung**: Error-Handler für Telegram-API-Fehler (NetworkError) hinzugefügt - "No error handlers are registered" Warnung entfernt
+
 ## [0.9.0] - 2026-02-27
 ### Hinzugefügt
 - **RAG Kontextmanagement-System**: Vollständig integriert in bot.py für automatische Prompt-Anreicherung
