@@ -27,6 +27,7 @@ from telegram.constants import ChatAction
 
 from lib.auth import TwoFactorAuth
 from lib.worker import log_request
+from lib.rag_integration import RAGIntegration
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -61,6 +62,9 @@ logging.basicConfig(level=logging.WARNING)
 
 # --- 2FA ---
 tfa = TwoFactorAuth()
+
+# --- RAG (Retrieval-Augmented Generation) ---
+rag = RAGIntegration()
 
 # --- Agenten-System ---
 AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
@@ -134,8 +138,8 @@ def reset_session(agent_id: str) -> bool:
     return False
 
 
-def build_claude_cmd(prompt: str, agent: dict = None) -> list:
-    """Baut den Claude-CLI-Befehl mit Agent-System-Prompt und MCP Playwright."""
+def build_claude_cmd(prompt: str, agent: dict = None, chat_id: str = None) -> list:
+    """Baut den Claude-CLI-Befehl mit Agent-System-Prompt, RAG-Kontext und MCP Playwright."""
     if agent is None:
         agent = get_active_agent()
     agent_id = agent.get("id", "default")
@@ -147,7 +151,20 @@ def build_claude_cmd(prompt: str, agent: dict = None) -> list:
     # MCP Playwright SSE-Server einbinden (persistente Session auf Port 8931)
     if MCP_CONFIG_FILE.exists():
         cmd += ["--mcp-config", str(MCP_CONFIG_FILE)]
+
+    # RAG-Kontext-Anreicherung: Enreichere System-Prompt mit semantischem Memory
     system_prompt = agent.get("system_prompt", "")
+    if system_prompt:
+        try:
+            system_prompt = rag.enrich_user_message(
+                user_query=prompt,
+                system_prompt=system_prompt,
+                chat_id=chat_id or "default"
+            )
+        except Exception as e:
+            log.warning("RAG-Anreicherung fehlgeschlagen: %s", e)
+            # Fallback: Verwende ursprünglichen Prompt
+
     if system_prompt:
         cmd += ["--system-prompt", system_prompt]
     model = agent.get("model")
@@ -413,7 +430,8 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         start = datetime.now()
-        cmd = build_claude_cmd(prompt, agent)
+        chat_id = str(update.message.chat_id)
+        cmd = build_claude_cmd(prompt, agent, chat_id)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -426,6 +444,18 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if stderr.decode().strip():
             output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
         log.info("Claude [%s] antwortete in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
+
+        # Speichere Interaktion für RAG-Memory
+        try:
+            rag.store_interaction(
+                user_message=prompt,
+                assistant_response=output,
+                chat_id=chat_id,
+                model=agent.get("model", "unknown")
+            )
+        except Exception as e:
+            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
         await split_send(update, output)
     except asyncio.TimeoutError:
         log.error("Claude Timeout nach 300s für: %s", prompt[:100])
@@ -514,7 +544,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         start = datetime.now()
-        cmd = build_claude_cmd(prompt, agent)
+        chat_id = str(update.message.chat_id)
+        cmd = build_claude_cmd(prompt, agent, chat_id)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -527,6 +558,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if stderr.decode().strip():
             output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
         log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
+
+        # Speichere Interaktion für RAG-Memory
+        try:
+            rag.store_interaction(
+                user_message=caption,
+                assistant_response=output,
+                chat_id=chat_id,
+                model=agent.get("model", "unknown")
+            )
+        except Exception as e:
+            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
         await split_send(update, output)
     except asyncio.TimeoutError:
         log.error("Timeout bei Bildanalyse")
@@ -559,7 +602,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         start = datetime.now()
-        cmd = build_claude_cmd(prompt, agent)
+        chat_id = str(update.message.chat_id)
+        cmd = build_claude_cmd(prompt, agent, chat_id)
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -572,6 +616,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if stderr.decode().strip():
             output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
         log.info("Claude [%s] antwortete in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
+
+        # Speichere Interaktion für RAG-Memory
+        try:
+            rag.store_interaction(
+                user_message=prompt,
+                assistant_response=output,
+                chat_id=chat_id,
+                model=agent.get("model", "unknown")
+            )
+        except Exception as e:
+            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
         await split_send(update, output)
     except asyncio.TimeoutError:
         log.error("Claude Timeout für Freitext: %s", prompt[:100])
