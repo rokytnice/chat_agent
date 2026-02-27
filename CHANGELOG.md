@@ -2,7 +2,14 @@
 
 ## [0.9.0] - 2026-02-27
 ### Hinzugefügt
-- **RAG Kontextmanagement-System**: Retrieval-Augmented Generation mit ChromaDB für semantisches Long-Term Memory
+- **RAG Kontextmanagement-System**: Vollständig integriert in bot.py für automatische Prompt-Anreicherung
+  - **bot.py RAG-Integration**:
+    - Automatische Prompt-Anreicherung: System-Prompts werden mit relevantem semantischem Memory angereichert
+    - Automatische Interaktions-Speicherung: Alle User-Queries und Assistant-Responses werden nach jedem API-Call gespeichert
+    - Wirkt in allen Claude API-Calls: `/claude`, Freitext, Bildanalyse
+    - Performance: ~5-10ms zusätzlich pro Request für RAG-Retrieval
+    - Error-Handling: RAG-Fehler sind nicht-kritisch (Fallback zu Original-Prompt)
+  - **RAG Kontextmanagement-System**: Retrieval-Augmented Generation mit ChromaDB für semantisches Long-Term Memory
   - `lib/context_manager.py` - Core RAG-Engine mit ChromaDB Persistenz
     - 3 Collections: conversations, knowledge, user_preferences
     - Semantic Search mit Cosine Similarity
