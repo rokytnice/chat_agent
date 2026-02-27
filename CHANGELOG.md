@@ -8,6 +8,25 @@
   - Automatische Bereinigung: Einträge älter als 7 Tage werden entfernt
   - Neues Format-Element: `🔇 [Anzahl] bereits bekannte E-Mails ignoriert.`
 
+## [0.10.1] - 2026-02-27
+### Hinzugefügt
+- **Neuer Agent: `fakechecker` - Fake-Kanzlei Checker** ⚖️
+  - Spezialisierter Agent zur Überprüfung verdächtiger Anwaltskanzleien und juristischer Dienstleister
+  - Basiert auf offiziellen **BRAK-Handlungshinweisen (April 2025)** für Betroffene von Fake-Kanzleien
+  - Integriertes Wissen über 3 bekannte Betrugsmaschen: Fake-Insolvenzverkäufe, Fake-Forderungseinzüge, Fake-Zahlungsansprüche
+  - Erkennt typische Täter-Methoden: Namensabwandlungen, Identitätsdiebstahl echter Kanzleien, gefälschte Gerichtsbeschlüsse, kopierte USt-/HRB-Nummern
+  - 7-Phasen-Workflow:
+    1. **BRAK Anwaltsverzeichnis-Check** (bravsearch.brak.de) - Ist der Anwalt zugelassen? Namensabwandlung? Kontaktdaten-Abgleich
+    2. **Insolvenzbekanntmachungen** (neu.insolvenzbekanntmachungen.de) - Existiert das Verfahren? Ist der Verwalter bestellt?
+    3. **Domain & Impressum-Analyse** - WHOIS, Domain-Alter, Impressum, kopierte USt-/HRB-Nr., Web Archive
+    4. **Adress- & Kontakt-Verifikation** - Google Maps, Tellows, E-Mail-Domain, beA/eBO/MJP sichere Kanäle
+    5. **Handelsregister** - Unternehmensregister, North Data, Insolvenzprüfung
+    6. **Reputation & Warnungen** - BRAK-Warnungen, RAK-Warnungen, Google Reviews, Reclabox, Presse
+    7. **Bankverbindung** - IBAN-Land-Check, ausländische IBAN = höchste Warnstufe
+  - Strukturierter Risikobericht mit Ampel-Bewertung (🟢 SERIÖS / 🟡 VERDÄCHTIG / 🔴 FAKE)
+  - Handlungsempfehlungen bei Betrug: Polizei, echte Kanzlei, RAK, DENIC-Löschantrag, Notice-and-Takedown (Art. 6 DSA)
+  - Aktivierung via `/agent fakechecker`
+
 ## [0.10.0] - 2026-02-27
 ### Hinzugefügt
 - **Zyklischer Task-Scheduler**: Automatische Ausführung wiederkehrender Agenten-Aufgaben
