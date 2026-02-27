@@ -157,6 +157,31 @@ def build_claude_cmd(prompt: str, agent: dict = None) -> list:
     return cmd
 
 
+class TypingLoop:
+    """Sendet periodisch ChatAction.TYPING, solange Claude arbeitet."""
+
+    def __init__(self, chat, interval: float = 4.0):
+        self.chat = chat
+        self.interval = interval
+        self._task: asyncio.Task | None = None
+
+    async def _loop(self):
+        try:
+            while True:
+                await self.chat.send_action(ChatAction.TYPING)
+                await asyncio.sleep(self.interval)
+        except asyncio.CancelledError:
+            pass
+
+    def start(self):
+        self._task = asyncio.create_task(self._loop())
+
+    def stop(self):
+        if self._task:
+            self._task.cancel()
+            self._task = None
+
+
 def is_authorized(update: Update) -> bool:
     """Nur autorisierte Chat-ID zulassen."""
     chat_id = update.effective_chat.id
@@ -383,7 +408,8 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
     agent = get_active_agent()
     log.info("CMD /claude [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "/claude", prompt, agent.get("name", "?"))
-    await update.message.chat.send_action(ChatAction.TYPING)
+    typing = TypingLoop(update.message.chat)
+    typing.start()
 
     try:
         start = datetime.now()
@@ -410,6 +436,8 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         log.exception("Fehler bei /claude: %s", e)
         await update.message.reply_text(f"Fehler: {e}")
+    finally:
+        typing.stop()
 
 
 async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -427,7 +455,8 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     log.info("CMD /bash von %s: %s", update.effective_user.username, command[:100])
     await log_request(update.effective_user.username, "/bash", command, "System")
-    await update.message.chat.send_action(ChatAction.TYPING)
+    typing = TypingLoop(update.message.chat)
+    typing.start()
 
     try:
         start = datetime.now()
@@ -450,6 +479,8 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         log.exception("Fehler bei /bash: %s", e)
         await update.message.reply_text(f"Fehler: {e}")
+    finally:
+        typing.stop()
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -464,7 +495,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log.info("Foto von %s (caption: %s)", update.effective_user.username, caption[:100])
     agent = get_active_agent()
     await log_request(update.effective_user.username, "Foto", caption, agent.get("name", "?"))
-    await update.message.chat.send_action(ChatAction.TYPING)
+    typing = TypingLoop(update.message.chat)
+    typing.start()
 
     # Höchste Auflösung nehmen (letztes Element in der Liste)
     photo = update.message.photo[-1]
@@ -504,6 +536,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Fehler bei Bildanalyse: {e}")
     finally:
         tmp_path.unlink(missing_ok=True)
+        typing.stop()
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -521,7 +554,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     agent = get_active_agent()
     log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "Freitext", prompt, agent.get("name", "?"))
-    await update.message.chat.send_action(ChatAction.TYPING)
+    typing = TypingLoop(update.message.chat)
+    typing.start()
 
     try:
         start = datetime.now()
@@ -548,6 +582,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         log.exception("Fehler bei Freitext: %s", e)
         await update.message.reply_text(f"Fehler: {e}")
+    finally:
+        typing.stop()
 
 
 async def cmd_newsession(update: Update, context: ContextTypes.DEFAULT_TYPE):

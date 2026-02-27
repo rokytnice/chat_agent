@@ -8,6 +8,9 @@
   - `/newsession` - Session zurücksetzen, nächste Nachricht startet frische Konversation
   - Session-Verwaltung: `load_sessions()`, `get_session_id()`, `reset_session()`
   - `data/` Ordner wird beim Start automatisch erstellt
+- **Typing-Indikator**: "tippt..." wird alle 4 Sekunden erneuert, solange Claude/Bash arbeitet
+  - `TypingLoop`-Klasse sendet periodisch `ChatAction.TYPING`
+  - Aktiv in allen Handlern: `/claude`, `/bash`, Freitext, Bildanalyse
 
 ## [0.8.0] - 2026-02-25
 ### Hinzugefügt
