@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.2] - 2026-02-27
+### Verbessert
+- **E-Mail-Check Duplikat-Vermeidung**: Stündlicher E-Mail-Check meldet nur noch wirklich neue E-Mails
+  - `data/mailcheck_seen.json` speichert bereits analysierte E-Mails (Absender + Betreff)
+  - Beim Check werden bereits gemeldete E-Mails automatisch übersprungen
+  - Automatische Bereinigung: Einträge älter als 7 Tage werden entfernt
+  - Neues Format-Element: `🔇 [Anzahl] bereits bekannte E-Mails ignoriert.`
+
 ## [0.10.0] - 2026-02-27
 ### Hinzugefügt
 - **Zyklischer Task-Scheduler**: Automatische Ausführung wiederkehrender Agenten-Aufgaben
