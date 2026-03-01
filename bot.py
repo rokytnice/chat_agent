@@ -29,6 +29,8 @@ from lib.auth import TwoFactorAuth
 from lib.worker import log_request
 from lib.rag_integration import RAGIntegration
 from lib.scheduler import TaskScheduler
+from lib.reminders import ReminderManager
+from lib.knowledge_sync import KnowledgeSync
 
 load_dotenv(Path(__file__).parent / ".env")
 
@@ -63,6 +65,10 @@ tfa = TwoFactorAuth()
 
 # --- RAG (Retrieval-Augmented Generation) ---
 rag = RAGIntegration()
+reminder_mgr = ReminderManager()
+
+# --- Knowledge Sync ---
+knowledge_sync = KnowledgeSync()
 
 # --- Scheduler ---
 scheduler: TaskScheduler = None  # Wird in post_init gestartet
@@ -343,6 +349,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await log_request(update.effective_user.username, "/status", "", agent.get("name", "?"))
     log.info("[/status] Antwort gesendet")
     scheduler_info = scheduler.get_status() if scheduler else "Scheduler: nicht initialisiert"
+    reminder_info = reminder_mgr.get_stats()
+    sync_info = knowledge_sync.get_sync_status()
     await update.message.reply_text(
         f"Bot läuft.\n"
         f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
@@ -350,6 +358,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Working Dir: {WORKING_DIR}\n"
         f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)\n"
         f"2FA: verifiziert\n\n"
+        f"{reminder_info}\n\n"
+        f"{sync_info}\n\n"
         f"{scheduler_info}"
     )
 
@@ -597,6 +607,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not prompt:
         return
 
+    # Reminder-Erkennung (vor Claude-Call, als Side-Effect)
+    if reminder_mgr.detect_reminder(prompt):
+        try:
+            r = reminder_mgr.parse_and_store(prompt, str(update.message.chat_id))
+            if r:
+                from datetime import datetime as dt_cls
+                due = dt_cls.fromisoformat(r["due_date"]).strftime("%d.%m.%Y %H:%M")
+                await update.message.reply_text(
+                    f"🔔 Erinnerung gespeichert für {due}\n({r['text'][:80]})"
+                )
+        except Exception as e:
+            log.warning("Reminder-Erkennung fehlgeschlagen: %s", e)
+
     agent = get_active_agent()
     log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "Freitext", prompt, agent.get("name", "?"))
@@ -717,6 +740,144 @@ async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Vorlesen-Fehler: {e}")
 
 
+async def cmd_cpu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/cpu – Claude CPU & Memory Auslastung anzeigen (kein Claude-Aufruf)."""
+    if not is_authorized(update):
+        return
+    if not tfa.verified:
+        return
+
+    log.info("[/cpu] von %s", update.effective_user.username)
+
+    try:
+        cmd = (
+            "echo '📊 Claude Prozesse:' && "
+            "(ps aux --sort=-%cpu | grep '[c]laude' | head -5 | "
+            "awk '{printf \"  PID=%-7s CPU=%5s%%  MEM=%5s%%  %s\\n\", $2, $3, $4, $11}' "
+            "|| echo '  Keine Claude-Prozesse') && "
+            "echo '' && echo '💻 System Load:' && "
+            "cat /proc/loadavg | awk '{printf \"  Load: %s %s %s\\n\", $1, $2, $3}' && "
+            "echo '' && echo '🧠 Memory:' && "
+            "LC_ALL=C free -h | awk '/Mem/{printf \"  Total: %s  Used: %s  Free: %s\\n\", $2, $3, $4}'"
+        )
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(WORKING_DIR),
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15)
+        output = stdout.decode().strip()
+        if not output:
+            output = "Keine Claude-Prozesse gefunden."
+        await update.message.reply_text(output)
+    except Exception as e:
+        log.exception("/cpu Fehler: %s", e)
+        await update.message.reply_text(f"❌ Fehler: {e}")
+
+
+async def cmd_sync(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/sync – Knowledge Base synchronisieren.
+
+    Verwendung:
+      /sync status  – Sync-Status aller Quellen anzeigen
+      /sync drive   – Google Drive indexieren (lokal, 0 Tokens)
+      /sync gmail   – Gmail-Cache in ChromaDB laden
+      /sync calendar – Kalender-Cache in ChromaDB laden
+      /sync contacts – Kontakte-Cache in ChromaDB laden
+      /sync all     – Alle Quellen synchronisieren
+    """
+    if not is_authorized(update):
+        return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
+
+    arg = context.args[0].lower() if context.args else "status"
+    log.info("[/sync] %s von %s", arg, update.effective_user.username)
+
+    if arg == "status":
+        await update.message.reply_text(knowledge_sync.get_sync_status())
+        return
+
+    if arg == "drive":
+        await update.message.reply_text("🔄 Drive-Sync gestartet...")
+        typing = TypingLoop(update.message.chat)
+        typing.start()
+        try:
+            start = datetime.now()
+            result = knowledge_sync.sync_drive_all()
+            elapsed = (datetime.now() - start).total_seconds()
+            msg = (
+                f"✅ Drive-Sync abgeschlossen in {elapsed:.1f}s:\n"
+                f"  📁 Ordnerstruktur: {result.get('structure_lines', 0)} Zeilen\n"
+                f"  📄 Textdateien: {result.get('documents', 0)} neu indexiert\n"
+                f"  📑 PDF-Katalog: {result.get('pdfs', 0)} PDFs"
+            )
+            await update.message.reply_text(msg)
+        except Exception as e:
+            log.exception("/sync drive Fehler: %s", e)
+            await update.message.reply_text(f"❌ Drive-Sync Fehler: {e}")
+        finally:
+            typing.stop()
+        return
+
+    if arg in ("gmail", "calendar", "contacts"):
+        # Lade gespeicherte JSON-Daten aus data/sync_*.json → ChromaDB
+        await update.message.reply_text(f"🔄 Lade {arg}-Daten in ChromaDB...")
+        try:
+            count = knowledge_sync.load_and_store(arg)
+            await update.message.reply_text(f"✅ {arg.title()}: {count} Einträge in ChromaDB gespeichert.")
+        except FileNotFoundError:
+            await update.message.reply_text(
+                f"⚠️ Keine {arg}-Daten vorhanden.\n"
+                f"Starte zuerst den datasync-Agent: /scheduler run sync_{arg}"
+            )
+        except Exception as e:
+            log.exception("/sync %s Fehler: %s", arg, e)
+            await update.message.reply_text(f"❌ {arg}-Sync Fehler: {e}")
+        return
+
+    if arg == "all":
+        await update.message.reply_text("🔄 Vollständiger Sync gestartet...")
+        typing = TypingLoop(update.message.chat)
+        typing.start()
+        try:
+            results = []
+            # Drive (direkt, 0 Tokens)
+            drive_result = knowledge_sync.sync_drive_all()
+            results.append(f"📁 Drive: {drive_result.get('documents', 0)} Docs, {drive_result.get('pdfs', 0)} PDFs")
+
+            # Gmail, Calendar, Contacts (aus Cache-Dateien)
+            for source in ("gmail", "calendar", "contacts"):
+                try:
+                    count = knowledge_sync.load_and_store(source)
+                    results.append(f"{'📧' if source == 'gmail' else '📅' if source == 'calendar' else '👥'} {source.title()}: {count} Einträge")
+                except FileNotFoundError:
+                    results.append(f"⚠️ {source.title()}: keine Daten (noch nicht synchronisiert)")
+                except Exception as e:
+                    results.append(f"❌ {source.title()}: {e}")
+
+            await update.message.reply_text("✅ Sync abgeschlossen:\n" + "\n".join(results))
+        except Exception as e:
+            log.exception("/sync all Fehler: %s", e)
+            await update.message.reply_text(f"❌ Sync Fehler: {e}")
+        finally:
+            typing.stop()
+        return
+
+    # Unbekanntes Argument
+    await update.message.reply_text(
+        "🔄 Knowledge-Sync Befehle:\n"
+        "/sync status – Sync-Status anzeigen\n"
+        "/sync drive – Google Drive indexieren\n"
+        "/sync gmail – Gmail-Cache laden\n"
+        "/sync calendar – Kalender laden\n"
+        "/sync contacts – Kontakte laden\n"
+        "/sync all – Alles synchronisieren"
+    )
+
+
 async def cmd_scheduler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Scheduler-Status und Steuerung: /scheduler [status|pause|resume|run <task_id>]"""
     if not is_authorized(update):
@@ -775,6 +936,8 @@ async def post_init(application: Application):
         BotCommand("bash", "Shell-Befehl ausführen"),
         BotCommand("vorlesen", "Text als Audio vorlesen"),
         BotCommand("newsession", "Frische Konversation starten"),
+        BotCommand("cpu", "Claude CPU & Memory Auslastung"),
+        BotCommand("sync", "Knowledge Base synchronisieren"),
         BotCommand("scheduler", "Scheduler-Status & Steuerung"),
         BotCommand("2fa", "Neuen 2FA-Code anfordern"),
         BotCommand("status", "Bot-Status"),
@@ -829,7 +992,9 @@ def main():
     app.add_handler(CommandHandler("bash", cmd_bash))
     app.add_handler(CommandHandler("vorlesen", cmd_vorlesen))
     app.add_handler(CommandHandler("newsession", cmd_newsession))
+    app.add_handler(CommandHandler("cpu", cmd_cpu))
     app.add_handler(CommandHandler("scheduler", cmd_scheduler))
+    app.add_handler(CommandHandler("sync", cmd_sync))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 

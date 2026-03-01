@@ -7,6 +7,7 @@ BOT_SCRIPT="$SCRIPT_DIR/bot.py"
 VENV="$SCRIPT_DIR/venv/bin/activate"
 LOG="$SCRIPT_DIR/logs/bot.log"
 MCP_PORT=8931
+MCP_PROFILE="$HOME/.cache/ms-playwright/mcp-chrome-c1ca833"
 
 echo "=== Telegram Bot + MCP Playwright Starter ==="
 
@@ -41,12 +42,14 @@ source "$VENV"
 mkdir -p "$SCRIPT_DIR/logs"
 
 # MCP Playwright Server starten (persistent, headless, shared context)
-echo "Starte MCP Playwright Server auf Port $MCP_PORT..."
+# Verwendet gespeichertes Browser-Profil mit Google-Session
+echo "Starte MCP Playwright Server auf Port $MCP_PORT (Profil: $MCP_PROFILE)..."
 nohup npx @playwright/mcp@latest \
     --port $MCP_PORT \
     --headless \
     --caps vision \
     --shared-browser-context \
+    --user-data-dir "$MCP_PROFILE" \
     >> "$SCRIPT_DIR/logs/mcp.log" 2>&1 &
 MCP_PID=$!
 echo "MCP Server gestartet mit PID $MCP_PID"

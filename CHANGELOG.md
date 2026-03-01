@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.12.0] - 2026-02-28
+### Hinzugefügt
+- **Personal Knowledge Base – Vollständige Datenerfassung & Sync** 🧠
+  - `lib/knowledge_sync.py` – Neues Core-Sync-Modul
+    - `KnowledgeSync` Klasse mit Delta-Sync (Hash-basierte Deduplizierung, SHA256)
+    - Gmail-Sync: E-Mail-Zusammenfassungen → ChromaDB (incremental, Hash pro Absender+Betreff+Datum)
+    - Kalender-Sync: Termine → ChromaDB (Replace-All Strategie)
+    - Kontakte-Sync: Kontakte → ChromaDB (Diff: neue/geänderte/gelöschte)
+    - Google Drive Sync (0 API-Tokens, reiner Dateisystem-Zugriff):
+      - Ordnerstruktur (~/gdrive, 3 Ebenen tief)
+      - Textdateien (.txt, .md, .csv, .json etc.) – Inhalt der 200 neuesten Dateien
+      - PDF-Katalog (nur Name + Pfad + Größe + Datum)
+    - Sicherheit: Keepass, .kdbx, security/-Ordner werden NICHT indexiert
+    - CLI-Interface: `python -m lib.knowledge_sync [drive|status]`
+    - State-Persistenz: `data/sync_state.json` mit known_hashes pro Quelle
+  - **`/sync` Telegram-Command**:
+    - `/sync status` – Sync-Status aller Quellen anzeigen
+    - `/sync drive` – Google Drive Komplett-Sync
+    - `/sync gmail` – Gmail-Cache in ChromaDB laden
+    - `/sync calendar` – Kalender-Cache laden
+    - `/sync contacts` – Kontakte-Cache laden
+    - `/sync all` – Alle verfügbaren Quellen synchronisieren
+  - **Neuer Agent `datasync`** in agents.json:
+    - 4 Scheduled Tasks: Gmail (alle 4h), Kalender (täglich 6 Uhr), Kontakte (wöchentlich), Drive (täglich 4 Uhr)
+    - Drive-Task als `type: "bash"` (0 API-Tokens)
+  - `/status` zeigt jetzt Knowledge Base Sync-Status an
+- **Performance**: ~630 ChromaDB-Einträge nach Komplett-Sync, ~8ms Retrieval-Zeit
+
+## [0.11.0] - 2026-02-28
+### Hinzugefügt
+- **Proaktives Erinnerungssystem** 🔔
+  - `lib/reminders.py` - ReminderManager Klasse
+    - Automatische Erkennung von Reminder-Phrasen via Regex ("erinnere mich", "ich muss", "nicht vergessen", "deadline", "frist", "termin am")
+    - Datum-Parsing via `dateparser` mit deutscher Sprache und Future-Präferenz
+    - Fallback: morgen 9:00 Uhr wenn kein Datum erkannt
+    - Speicherung in `data/reminders.json` (einfach, debugbar)
+  - **Bot-Integration**: Hook in `handle_message()` erkennt Reminder automatisch
+    - Bestätigung: "🔔 Erinnerung gespeichert für DD.MM.YYYY HH:MM"
+    - Nachricht wird trotzdem weiter an Claude gesendet (kein Early Return)
+  - **Scheduler-Integration**: `_check_reminders()` prüft jede Minute auf fällige Erinnerungen
+    - Kostet 0 API-Tokens (kein Claude-Aufruf)
+    - Automatische Bereinigung: erledigte Erinnerungen nach 30 Tagen gelöscht
+  - `/status` zeigt aktive Erinnerungen an
+- **Bash-Task-Typ im Scheduler** ⚙️
+  - Neues Feld `type: "bash"` in `scheduled_tasks` (config/agents.json)
+  - Führt Shell-Befehle direkt aus OHNE Claude aufzurufen
+  - Rückwärtskompatibel: bestehende Tasks (ohne type-Feld) laufen weiter als Claude-Tasks
+  - Eigener Header: "⚙️ Typ: Bash-Befehl" statt "Agent: ..."
+- **`/cpu` – Claude CPU & Memory Monitor** 📊
+  - Neuer Telegram-Befehl `/cpu` – auf Anfrage, kein Cron-Job
+  - Zeigt: Claude-Prozesse (PID, CPU%, MEM%), System Load, Memory-Übersicht
+  - Nutzt KEIN Claude – reiner Bash-Befehl, direkt an Telegram gesendet
+- `dateparser>=1.2.0` Dependency hinzugefügt
+
 ## [0.10.2] - 2026-02-27
 ### Verbessert
 - **E-Mail-Check Duplikat-Vermeidung**: Stündlicher E-Mail-Check meldet nur noch wirklich neue E-Mails

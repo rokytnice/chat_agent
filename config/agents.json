@@ -74,10 +74,10 @@
         {
           "id": "email_check",
           "enabled": true,
-          "cron": "0 * * * *",
+          "cron": "0 */2 * * *",
           "prompt": "Prüfe jetzt das Gmail-Postfach auf wichtige ungelesene E-Mails. Öffne https://mail.google.com im Browser und berichte.",
           "timeout_seconds": 180,
-          "description": "Stündlicher E-Mail-Check"
+          "description": "E-Mail-Check alle 2 Stunden"
         }
       ]
     },
@@ -89,6 +89,49 @@
       "tools": ["claude", "bash", "playwright"],
       "working_dir": null,
       "scheduled_tasks": []
+    },
+    "datasync": {
+      "name": "Daten-Synchronizer",
+      "emoji": "🔄",
+      "system_prompt": "Du bist ein Daten-Synchronizer. Deine Aufgabe ist es, persönliche Daten aus Google-Diensten zu erfassen und als strukturiertes JSON zu speichern.\n\n## WICHTIG: Output-Format\nDu musst die erfassten Daten IMMER als JSON in eine Datei schreiben. Verwende dazu den bash-Befehl mit cat und heredoc.\n\n## Gmail-Sync\n1. Öffne https://mail.google.com im Browser (Playwright)\n2. Erfasse die neuesten E-Mails (Absender, Betreff, Datum, kurze Zusammenfassung aus dem Snippet)\n3. Bewerte die Wichtigkeit: dringend/wichtig/normal\n4. Speichere als JSON in data/sync_gmail.json:\n```bash\ncat > data/sync_gmail.json << 'JSONEOF'\n{\"synced_at\": \"...\", \"count\": N, \"data\": [{\"sender\": \"...\", \"subject\": \"...\", \"date\": \"...\", \"summary\": \"...\", \"importance\": \"...\"}]}\nJSONEOF\n```\n5. Danach: Führe das Python-Script aus um die Daten in die Wissensbasis zu übernehmen:\n```bash\ncd /home/aroc/projects/chat_agent && venv/bin/python -c \"from lib.knowledge_sync import KnowledgeSync; ks = KnowledgeSync(); print(ks.load_and_store('gmail'))\"\n```\n\n## Kalender-Sync\n1. Öffne https://calendar.google.com im Browser\n2. Erfasse alle sichtbaren Termine (Titel, Datum, Uhrzeit, Ort, Beschreibung)\n3. Speichere als JSON in data/sync_calendar.json (gleicher Ablauf wie Gmail)\n4. Danach Python-Script: load_and_store('calendar')\n\n## Kontakte-Sync\n1. Öffne https://contacts.google.com im Browser\n2. Erfasse alle Kontakte (Name, E-Mail, Telefon, Organisation, Notizen)\n3. Speichere als JSON in data/sync_contacts.json\n4. Danach Python-Script: load_and_store('contacts')\n\n## Regeln:\n- Antworte auf Deutsch\n- Melde am Ende: Anzahl erfasster Einträge und ob der Import in die Wissensbasis erfolgreich war\n- Bei Fehlern: Fehlermeldung und was genau schiefging",
+      "model": "opus",
+      "tools": ["claude", "bash", "playwright"],
+      "working_dir": null,
+      "scheduled_tasks": [
+        {
+          "id": "sync_gmail",
+          "enabled": true,
+          "cron": "30 */4 * * *",
+          "prompt": "Synchronisiere Gmail: Öffne mail.google.com, erfasse die neuesten 20 E-Mails (Absender, Betreff, Datum, Snippet-Zusammenfassung, Wichtigkeit). Speichere als JSON in data/sync_gmail.json und importiere dann in die Wissensbasis.",
+          "timeout_seconds": 300,
+          "description": "Gmail-Sync alle 4 Stunden"
+        },
+        {
+          "id": "sync_calendar",
+          "enabled": true,
+          "cron": "0 6 * * *",
+          "prompt": "Synchronisiere Kalender: Öffne calendar.google.com, erfasse alle sichtbaren Termine der nächsten 14 Tage. Speichere als JSON in data/sync_calendar.json und importiere in die Wissensbasis.",
+          "timeout_seconds": 300,
+          "description": "Kalender-Sync täglich 6 Uhr"
+        },
+        {
+          "id": "sync_contacts",
+          "enabled": true,
+          "cron": "0 3 * * 0",
+          "prompt": "Synchronisiere Kontakte: Öffne contacts.google.com, erfasse alle Kontakte mit Name, E-Mail, Telefon, Organisation. Speichere als JSON in data/sync_contacts.json und importiere in die Wissensbasis.",
+          "timeout_seconds": 600,
+          "description": "Kontakte-Sync wöchentlich Sonntag 3 Uhr"
+        },
+        {
+          "id": "sync_drive",
+          "enabled": true,
+          "type": "bash",
+          "cron": "0 4 * * *",
+          "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.knowledge_sync drive",
+          "timeout_seconds": 120,
+          "description": "Drive-Index täglich 4 Uhr"
+        }
+      ]
     },
     "auditor": {
       "name": "Forensic Corporate Auditor",

@@ -152,7 +152,13 @@ class TaskScheduler:
     # ------------------------------------------------------------------ #
 
     async def _execute_task(self, task_id: str, task_config: dict, agent: dict):
-        """Führt einen einzelnen Task aus und sendet das Ergebnis via Telegram."""
+        """Führt einen einzelnen Task aus und sendet das Ergebnis via Telegram.
+
+        Unterstützt zwei Task-Typen:
+          - "claude" (default): Führt Prompt via Claude aus
+          - "bash": Führt Shell-Befehl direkt aus (kein Claude)
+        """
+        task_type = task_config.get("type", "claude")
         prompt = task_config.get("prompt", "")
         timeout = task_config.get("timeout_seconds", 300)
         description = task_config.get("description", task_id)
@@ -160,27 +166,45 @@ class TaskScheduler:
         agent_emoji = agent.get("emoji", "🤖")
 
         log.info(
-            "⏰ Scheduler: Starte Task '%s' mit Agent '%s %s'",
-            task_id, agent_emoji, agent_name,
+            "⏰ Scheduler: Starte Task '%s' (type=%s) mit Agent '%s %s'",
+            task_id, task_type, agent_emoji, agent_name,
         )
 
         start = datetime.now()
 
         try:
-            cmd = self.build_claude_cmd(prompt, agent, "scheduler")
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(WORKING_DIR),
-            )
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout
-            )
-            elapsed = (datetime.now() - start).total_seconds()
-            output = stdout.decode().strip()
-            if stderr.decode().strip():
-                output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+            if task_type == "bash":
+                # ---- Bash-Task: Direkte Shell-Ausführung, KEIN Claude ----
+                bash_cmd = task_config.get("command", prompt)
+                proc = await asyncio.create_subprocess_shell(
+                    bash_cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(WORKING_DIR),
+                )
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=timeout
+                )
+                elapsed = (datetime.now() - start).total_seconds()
+                output = stdout.decode().strip()
+                if stderr.decode().strip():
+                    output += f"\n--- STDERR ---\n{stderr.decode().strip()}"
+            else:
+                # ---- Claude-Task: Standard-Ausführung ----
+                cmd = self.build_claude_cmd(prompt, agent, "scheduler")
+                proc = await asyncio.create_subprocess_exec(
+                    *cmd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    cwd=str(WORKING_DIR),
+                )
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=timeout
+                )
+                elapsed = (datetime.now() - start).total_seconds()
+                output = stdout.decode().strip()
+                if stderr.decode().strip():
+                    output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
 
             # State aktualisieren
             self._state.setdefault(task_id, {"run_count": 0})
@@ -195,12 +219,20 @@ class TaskScheduler:
             )
 
             # Ergebnis an Telegram senden
-            header = (
-                f"⏰ Scheduler: {description}\n"
-                f"Agent: {agent_emoji} {agent_name}\n"
-                f"Dauer: {elapsed:.1f}s\n"
-                f"{'─' * 30}\n\n"
-            )
+            if task_type == "bash":
+                header = (
+                    f"⚙️ Scheduler: {description}\n"
+                    f"Typ: Bash-Befehl\n"
+                    f"Dauer: {elapsed:.1f}s\n"
+                    f"{'─' * 30}\n\n"
+                )
+            else:
+                header = (
+                    f"⏰ Scheduler: {description}\n"
+                    f"Agent: {agent_emoji} {agent_name}\n"
+                    f"Dauer: {elapsed:.1f}s\n"
+                    f"{'─' * 30}\n\n"
+                )
             await self.send_message(header + output)
 
             log.info(
@@ -238,8 +270,32 @@ class TaskScheduler:
     #  Scheduler-Zyklus                                                    #
     # ------------------------------------------------------------------ #
 
+    async def _check_reminders(self):
+        """Prüfe fällige Erinnerungen und sende sie via Telegram."""
+        try:
+            from lib.reminders import ReminderManager
+            mgr = ReminderManager()
+            due = mgr.get_due_reminders()
+            for r in due:
+                created = r.get("created_at", "")[:10]
+                text = (
+                    f"🔔 Erinnerung!\n\n"
+                    f"{r['text']}\n\n"
+                    f"(Erstellt: {created})"
+                )
+                await self.send_message(text)
+                mgr.mark_sent(r["id"])
+                log.info("🔔 Reminder gesendet: %s", r["id"])
+            # Alte Erinnerungen aufräumen
+            mgr.cleanup_old(days=30)
+        except Exception as e:
+            log.warning("Reminder-Check fehlgeschlagen: %s", e)
+
     async def _run_cycle(self):
-        """Ein Scheduler-Zyklus: Alle Agenten durchgehen, fällige Tasks ausführen."""
+        """Ein Scheduler-Zyklus: Erinnerungen prüfen, dann Agenten-Tasks ausführen."""
+        # Erinnerungen prüfen (kostet 0 Tokens)
+        await self._check_reminders()
+
         config = self._load_agents()
         agents = config.get("agents", {})
 
