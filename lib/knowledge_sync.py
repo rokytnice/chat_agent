@@ -504,6 +504,8 @@ class KnowledgeSync:
 
     def get_sync_status(self) -> str:
         """Formatierter Sync-Status für /status und /sync Befehle."""
+        # Immer frisch von Disk lesen (State kann extern aktualisiert worden sein)
+        self._load_state()
         sources = {
             "gmail": "📧 Gmail",
             "calendar": "📅 Kalender",
