@@ -422,8 +422,62 @@ async def cmd_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def _run_claude_background(prompt: str, agent: dict, chat_id: str, message):
+    """Asynchrone Claude-Ausführung im Hintergrund ohne Timeout.
+
+    - Startet Claude als Background-Task
+    - Zeigt Typing-Indikator
+    - Sendet Ergebnis per Reply wenn fertig
+    - RAG-Integration automatisch
+    """
+    typing = TypingLoop(message.chat)
+    typing.start()
+    start = datetime.now()
+    try:
+        cmd = build_claude_cmd(prompt, agent, chat_id)
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(WORKING_DIR),
+        )
+        # KEIN Timeout – warte bis Prozess fertig ist
+        stdout, stderr = await proc.communicate()
+        elapsed = (datetime.now() - start).total_seconds()
+        output = stdout.decode().strip()
+        if stderr.decode().strip():
+            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+        log.info("Claude [%s] fertig in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
+
+        # Speichere Interaktion für RAG-Memory
+        try:
+            rag.store_interaction(
+                user_message=prompt,
+                assistant_response=output,
+                chat_id=chat_id,
+                model=agent.get("model", "unknown")
+            )
+        except Exception as e:
+            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
+        # Sende Ergebnis
+        if not output.strip():
+            await message.reply_text("(keine Ausgabe)")
+        else:
+            for i in range(0, len(output), 4000):
+                await message.reply_text(output[i:i+4000])
+    except FileNotFoundError:
+        log.error("claude CLI nicht gefunden")
+        await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
+    except Exception as e:
+        log.exception("Fehler in _run_claude_background: %s", e)
+        await message.reply_text(f"Fehler: {e}")
+    finally:
+        typing.stop()
+
+
 async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Nachricht an Claude Code senden und Antwort zurückgeben."""
+    """Nachricht an Claude Code senden (asynchron im Hintergrund)."""
     if not is_authorized(update):
         return
     if not tfa.verified:
@@ -438,49 +492,11 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
     agent = get_active_agent()
     log.info("CMD /claude [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "/claude", prompt, agent.get("name", "?"))
-    typing = TypingLoop(update.message.chat)
-    typing.start()
 
-    try:
-        start = datetime.now()
-        chat_id = str(update.message.chat_id)
-        cmd = build_claude_cmd(prompt, agent, chat_id)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(WORKING_DIR),
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        elapsed = (datetime.now() - start).total_seconds()
-        output = stdout.decode().strip()
-        if stderr.decode().strip():
-            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Claude [%s] antwortete in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
-
-        # Speichere Interaktion für RAG-Memory
-        try:
-            rag.store_interaction(
-                user_message=prompt,
-                assistant_response=output,
-                chat_id=chat_id,
-                model=agent.get("model", "unknown")
-            )
-        except Exception as e:
-            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
-        await split_send(update, output)
-    except asyncio.TimeoutError:
-        log.error("Claude Timeout nach 300s für: %s", prompt[:100])
-        await update.message.reply_text("Timeout: Claude Code hat nach 5 Minuten nicht geantwortet.")
-    except FileNotFoundError:
-        log.error("claude CLI nicht gefunden")
-        await update.message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
-    except Exception as e:
-        log.exception("Fehler bei /claude: %s", e)
-        await update.message.reply_text(f"Fehler: {e}")
-    finally:
-        typing.stop()
+    # Starte Claude im Hintergrund und antworte sofort
+    chat_id = str(update.message.chat_id)
+    asyncio.create_task(_run_claude_background(prompt, agent, chat_id, update.message))
+    await update.message.reply_text("⏳ Claude läuft...")
 
 
 async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -526,8 +542,62 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         typing.stop()
 
 
+async def _run_photo_analysis_background(prompt: str, agent: dict, chat_id: str, message, tmp_path: Path):
+    """Asynchrone Bildanalyse im Hintergrund ohne Timeout.
+
+    - Startet Claude ohne Timeout
+    - Räumt temporäre Datei auf wenn fertig
+    - Zeigt Typing-Indikator
+    """
+    typing = TypingLoop(message.chat)
+    typing.start()
+    start = datetime.now()
+    try:
+        cmd = build_claude_cmd(prompt, agent, chat_id)
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=str(WORKING_DIR),
+        )
+        # KEIN Timeout – warte bis Prozess fertig ist
+        stdout, stderr = await proc.communicate()
+        elapsed = (datetime.now() - start).total_seconds()
+        output = stdout.decode().strip()
+        if stderr.decode().strip():
+            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+        log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
+
+        # Speichere Interaktion für RAG-Memory
+        try:
+            rag.store_interaction(
+                user_message=prompt,
+                assistant_response=output,
+                chat_id=chat_id,
+                model=agent.get("model", "unknown")
+            )
+        except Exception as e:
+            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
+        # Sende Ergebnis
+        if not output.strip():
+            await message.reply_text("(keine Ausgabe)")
+        else:
+            for i in range(0, len(output), 4000):
+                await message.reply_text(output[i:i+4000])
+    except FileNotFoundError:
+        log.error("claude CLI nicht gefunden")
+        await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
+    except Exception as e:
+        log.exception("Fehler bei Bildanalyse: %s", e)
+        await message.reply_text(f"Fehler bei Bildanalyse: {e}")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+        typing.stop()
+
+
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Foto empfangen, speichern und von Claude analysieren lassen."""
+    """Foto empfangen, speichern und von Claude analysieren lassen (asynchron)."""
     if not is_authorized(update):
         return
     if not tfa.verified:
@@ -538,8 +608,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log.info("Foto von %s (caption: %s)", update.effective_user.username, caption[:100])
     agent = get_active_agent()
     await log_request(update.effective_user.username, "Foto", caption, agent.get("name", "?"))
-    typing = TypingLoop(update.message.chat)
-    typing.start()
 
     # Höchste Auflösung nehmen (letztes Element in der Liste)
     photo = update.message.photo[-1]
@@ -556,47 +624,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Anweisung des Users: {caption}"
         )
 
-        start = datetime.now()
+        # Starte Bildanalyse im Hintergrund
         chat_id = str(update.message.chat_id)
-        cmd = build_claude_cmd(prompt, agent, chat_id)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(WORKING_DIR),
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        elapsed = (datetime.now() - start).total_seconds()
-        output = stdout.decode().strip()
-        if stderr.decode().strip():
-            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
-
-        # Speichere Interaktion für RAG-Memory
-        try:
-            rag.store_interaction(
-                user_message=caption,
-                assistant_response=output,
-                chat_id=chat_id,
-                model=agent.get("model", "unknown")
-            )
-        except Exception as e:
-            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
-        await split_send(update, output)
-    except asyncio.TimeoutError:
-        log.error("Timeout bei Bildanalyse")
-        await update.message.reply_text("Timeout: Bildanalyse hat nach 5 Minuten nicht geantwortet.")
+        asyncio.create_task(_run_photo_analysis_background(prompt, agent, chat_id, update.message, tmp_path))
+        await update.message.reply_text("⏳ Bildanalyse läuft...")
     except Exception as e:
-        log.exception("Fehler bei Bildanalyse: %s", e)
-        await update.message.reply_text(f"Fehler bei Bildanalyse: {e}")
-    finally:
+        log.exception("Fehler beim Foto-Download: %s", e)
+        await update.message.reply_text(f"Fehler beim Foto-Download: {e}")
         tmp_path.unlink(missing_ok=True)
-        typing.stop()
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Freitext-Nachrichten direkt an Claude Code weiterleiten."""
+    """Freitext-Nachrichten direkt an Claude Code weiterleiten (asynchron im Hintergrund)."""
     if not is_authorized(update):
         return
     if not tfa.verified:
@@ -623,49 +662,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     agent = get_active_agent()
     log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "Freitext", prompt, agent.get("name", "?"))
-    typing = TypingLoop(update.message.chat)
-    typing.start()
 
-    try:
-        start = datetime.now()
-        chat_id = str(update.message.chat_id)
-        cmd = build_claude_cmd(prompt, agent, chat_id)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(WORKING_DIR),
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-        elapsed = (datetime.now() - start).total_seconds()
-        output = stdout.decode().strip()
-        if stderr.decode().strip():
-            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Claude [%s] antwortete in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
-
-        # Speichere Interaktion für RAG-Memory
-        try:
-            rag.store_interaction(
-                user_message=prompt,
-                assistant_response=output,
-                chat_id=chat_id,
-                model=agent.get("model", "unknown")
-            )
-        except Exception as e:
-            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
-        await split_send(update, output)
-    except asyncio.TimeoutError:
-        log.error("Claude Timeout für Freitext: %s", prompt[:100])
-        await update.message.reply_text("Timeout: Claude Code hat nach 5 Minuten nicht geantwortet.")
-    except FileNotFoundError:
-        log.error("claude CLI nicht gefunden")
-        await update.message.reply_text("Fehler: 'claude' CLI nicht gefunden.")
-    except Exception as e:
-        log.exception("Fehler bei Freitext: %s", e)
-        await update.message.reply_text(f"Fehler: {e}")
-    finally:
-        typing.stop()
+    # Starte Claude im Hintergrund und antworte sofort
+    chat_id = str(update.message.chat_id)
+    asyncio.create_task(_run_claude_background(prompt, agent, chat_id, update.message))
+    await update.message.reply_text("⏳ Claude läuft...")
 
 
 async def cmd_newsession(update: Update, context: ContextTypes.DEFAULT_TYPE):

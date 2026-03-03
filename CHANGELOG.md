@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.15.0] - 2026-03-03
+### Hinzugefügt
+- **Asynchrone Hintergrund-Tasks – Claude ohne Timeout** ⏳
+  - Neue Coroutine `_run_claude_background()` für nicht-blockierende Claude-Aufrufe
+  - Handler `/claude`, Freitext (`handle_message`), Bildanalyse (`handle_photo`) nutzen jetzt async Background-Tasks
+  - Sofortige Antwort "⏳ Claude läuft..." beim Aufruf
+  - Typing-Indikator läuft im Hintergrund bis Ergebnis kommt
+  - **KEIN 300s Timeout** mehr – lange Aufgaben (Playwright, Daten-Syncs) blockieren nicht mehr
+  - Ergebnis wird automatisch per Reply gesendet wenn fertig
+  - Alle Handler können parallel Anfragen verarbeiten (Event-Loop Multiplexing)
+  - Bot bleibt während langer Claude-Läufe responsiv (z.B. `/status` funktioniert sofort)
+
+## [0.14.0] - 2026-03-03
+### Hinzugefügt
+- **Task-Preparation Agent – Intelligente Planung & Erinnerungen** 📋
+  - Neuer Agent `taskprep` ("Aufgaben-Vorbereiter")
+  - Analysiert synchronisierte Kalender-, E-Mail- und Kontaktdaten
+  - **3 Scheduled Tasks**:
+    - `taskprep_morning` (täglich 7 Uhr): Morgen-Briefing mit Tagesübersicht, Reiserouten, Aufgaben
+    - `taskprep_precheck` (alle 3h, 9-20 Uhr): Kurzcheck auf nahende Termine + Abfahrts-Erinnerungen
+    - `taskprep_evening` (täglich 20 Uhr): Rückblick + Morgen-Vorschau
+  - **Smart Timing-Regeln**:
+    - Termine MIT Ort: 1 Woche, 1 Tag, Morgen, 90 Min vor Abfahrt
+    - Termine OHNE Ort: 1 Tag, Morgen, 30 Min vorher
+    - Deadlines/Fristen: 1 Woche (Briefing), 3 Tage, 1 Tag, Am Tag
+    - E-Mail-Aufgaben: Einmalig bei Erkennung, dann wie Deadlines
+  - **Automatische Vorbereitung**:
+    - Google Maps Reiserouten via Playwright (ÖPNV-optimiert, Start: Im Achterkastell 1, 10315 Berlin)
+    - Kontext sammeln: Passende E-Mails zu Terminen finden
+    - Dokumente identifizieren: Hinweise auf relevante Dateien in Google Drive
+  - **User-Erinnerungen** (der Bot kann's nicht selbst):
+    - Explizite Checklisten für: Dokumente ausdrucken, Unterlagen packen, Bestätigungen senden, Rechnungen bezahlen, Anrufe tätigen, E-Mails beantworten
+  - **State-Management**:
+    - `data/taskprep_state.json` speichert bereits gemeldete Ereignisse (Event-Hash + Benachrichtigungstypen)
+    - Verhindert Duplikat-Erinnerungen (intelligent: 1 Benachrichtigung pro Event-Timing, nicht mehrfach)
+    - Automatische Cleanup bei alten Einträgen
+  - **Intelligente Output-Filter**:
+    - KEINE Nachricht wenn nichts Relevantes ansteht (nicht nervig)
+    - Präzise Erinnerungen nur bei Bedarf
+    - Übersichtliche Briefing-Formate mit Emoji und Struktur
+
 ## [0.12.0] - 2026-02-28
 ### Hinzugefügt
 - **Personal Knowledge Base – Vollständige Datenerfassung & Sync** 🧠
