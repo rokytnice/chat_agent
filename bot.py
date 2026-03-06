@@ -77,6 +77,282 @@ scheduler: TaskScheduler = None  # Wird in post_init gestartet
 AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
 ACTIVE_AGENT = {}  # Wird beim Start geladen
 
+# --- Claude Queue (Warteschlange statt Kill) ---
+class ClaudeQueue:
+    """Pro-Agent Warteschlange für Claude-Anfragen.
+
+    Statt laufende Prozesse zu killen werden neue Nachrichten eingereiht
+    und sequentiell über die gleiche Claude-Session abgearbeitet.
+    """
+
+    def __init__(self):
+        self._queues: dict[str, asyncio.Queue] = {}     # agent_id → Queue
+        self._workers: dict[str, asyncio.Task] = {}      # agent_id → Worker-Task
+        self._current: dict[str, dict] = {}               # agent_id → laufender Job
+        self._stats: dict[str, int] = {}                  # agent_id → verarbeitete Jobs
+
+    def _ensure_queue(self, agent_id: str):
+        """Stellt sicher dass Queue und Worker für Agent existieren."""
+        if agent_id not in self._queues:
+            self._queues[agent_id] = asyncio.Queue()
+            self._stats[agent_id] = 0
+
+    async def enqueue(self, agent_id: str, prompt: str, agent: dict,
+                      chat_id: str, message, job_type: str = "text",
+                      tmp_path: Path = None, title: str = None) -> int:
+        """Fügt Job in Queue ein. Gibt Queue-Position zurück (0 = wird sofort verarbeitet)."""
+        self._ensure_queue(agent_id)
+        job = {
+            "prompt": prompt,
+            "agent": agent,
+            "chat_id": chat_id,
+            "message": message,
+            "job_type": job_type,
+            "tmp_path": tmp_path,
+            "title": title or prompt[:50],
+            "enqueued": datetime.now(),
+        }
+        position = self._queues[agent_id].qsize()
+        # Wenn gerade ein Job läuft, ist die tatsächliche Position +1
+        if agent_id in self._current:
+            position += 1
+        await self._queues[agent_id].put(job)
+        log.info("📋 Queue [%s]: Job eingereiht (Position %d, Typ=%s, Prompt='%s...')",
+                 agent_id, position, job_type, prompt[:50])
+
+        # Worker starten falls noch keiner läuft
+        if agent_id not in self._workers or self._workers[agent_id].done():
+            self._workers[agent_id] = asyncio.create_task(self._worker(agent_id))
+            log.info("🔧 Queue [%s]: Worker gestartet", agent_id)
+
+        return position
+
+    async def _worker(self, agent_id: str):
+        """Endlos-Loop: nimmt Jobs aus Queue und führt sie sequentiell aus."""
+        log.info("🔧 Worker [%s] gestartet", agent_id)
+        try:
+            while True:
+                try:
+                    job = await asyncio.wait_for(
+                        self._queues[agent_id].get(), timeout=300
+                    )
+                except asyncio.TimeoutError:
+                    log.info("🔧 Worker [%s] beendet (5 Min ohne Jobs)", agent_id)
+                    break
+
+                self._current[agent_id] = job
+                try:
+                    if job["job_type"] == "photo":
+                        await self._execute_photo(agent_id, job)
+                    else:
+                        await self._execute_claude(agent_id, job)
+                    self._stats[agent_id] = self._stats.get(agent_id, 0) + 1
+                except Exception as e:
+                    log.exception("Worker [%s] Fehler bei Job: %s", agent_id, e)
+                    try:
+                        await job["message"].reply_text(f"❌ Fehler: {e}")
+                    except Exception:
+                        pass
+                finally:
+                    self._current.pop(agent_id, None)
+                    self._queues[agent_id].task_done()
+                    # Nächsten Job in Queue benachrichtigen
+                    await self._notify_next(agent_id)
+        finally:
+            self._workers.pop(agent_id, None)
+            log.info("🔧 Worker [%s] beendet", agent_id)
+
+    async def _notify_next(self, agent_id: str):
+        """Informiert den nächsten Job in der Queue dass er dran ist."""
+        if agent_id in self._queues and not self._queues[agent_id].empty():
+            remaining = self._queues[agent_id].qsize()
+            log.info("📋 Queue [%s]: %d Job(s) warten noch", agent_id, remaining)
+
+    async def _execute_claude(self, agent_id: str, job: dict):
+        """Führt einen Claude-Job aus (Text/Freitext)."""
+        prompt = job["prompt"]
+        agent = job["agent"]
+        chat_id = job["chat_id"]
+        message = job["message"]
+
+        typing = TypingLoop(message.chat)
+        typing.start()
+        start = datetime.now()
+        proc = None
+        try:
+            cmd = build_claude_cmd(prompt, agent, chat_id)
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(WORKING_DIR),
+            )
+            job["proc"] = proc
+            job["start"] = start
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=CLAUDE_MAX_RUNTIME
+                )
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                elapsed = (datetime.now() - start).total_seconds()
+                log.error("⏱️ Claude [%s] TIMEOUT nach %.0fs – Prozess gekillt (PID %d)", agent_id, elapsed, proc.pid)
+                await message.reply_text(
+                    f"⏱️ Claude hat nach {int(elapsed)}s nicht geantwortet und wurde gestoppt.\n"
+                    f"Tipp: /newsession für eine frische Konversation."
+                )
+                return
+
+            elapsed = (datetime.now() - start).total_seconds()
+            output = stdout.decode().strip()
+            if stderr.decode().strip():
+                output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+            log.info("Claude [%s] fertig in %.1fs (%d Zeichen)", agent_id, elapsed, len(output))
+            if elapsed > 120:
+                log.warning("⚠️ Claude [%s] langsam: %.1fs", agent_id, elapsed)
+
+            try:
+                rag.store_interaction(
+                    user_message=prompt,
+                    assistant_response=output,
+                    chat_id=chat_id,
+                    model=agent.get("model", "unknown")
+                )
+            except Exception as e:
+                log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
+            if not output.strip():
+                await message.reply_text("(keine Ausgabe)")
+            else:
+                for i in range(0, len(output), 4000):
+                    await message.reply_text(output[i:i+4000])
+        except FileNotFoundError:
+            log.error("claude CLI nicht gefunden")
+            await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
+        finally:
+            typing.stop()
+
+    async def _execute_photo(self, agent_id: str, job: dict):
+        """Führt einen Bildanalyse-Job aus."""
+        prompt = job["prompt"]
+        agent = job["agent"]
+        chat_id = job["chat_id"]
+        message = job["message"]
+        tmp_path = job.get("tmp_path")
+
+        typing = TypingLoop(message.chat)
+        typing.start()
+        start = datetime.now()
+        proc = None
+        try:
+            cmd = build_claude_cmd(prompt, agent, chat_id)
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(WORKING_DIR),
+            )
+            job["proc"] = proc
+            job["start"] = start
+
+            try:
+                stdout, stderr = await asyncio.wait_for(
+                    proc.communicate(), timeout=CLAUDE_MAX_RUNTIME
+                )
+            except asyncio.TimeoutError:
+                proc.kill()
+                await proc.wait()
+                elapsed = (datetime.now() - start).total_seconds()
+                log.error("⏱️ Bildanalyse [%s] TIMEOUT nach %.0fs – gekillt", agent_id, elapsed)
+                await message.reply_text(f"⏱️ Bildanalyse Timeout nach {int(elapsed)}s.")
+                return
+
+            elapsed = (datetime.now() - start).total_seconds()
+            output = stdout.decode().strip()
+            if stderr.decode().strip():
+                output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+            log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent_id, elapsed, len(output))
+
+            try:
+                rag.store_interaction(
+                    user_message=prompt,
+                    assistant_response=output,
+                    chat_id=chat_id,
+                    model=agent.get("model", "unknown")
+                )
+            except Exception as e:
+                log.warning("RAG-Speichern fehlgeschlagen: %s", e)
+
+            if not output.strip():
+                await message.reply_text("(keine Ausgabe)")
+            else:
+                for i in range(0, len(output), 4000):
+                    await message.reply_text(output[i:i+4000])
+        except FileNotFoundError:
+            log.error("claude CLI nicht gefunden")
+            await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
+        finally:
+            if tmp_path:
+                tmp_path.unlink(missing_ok=True)
+            typing.stop()
+
+    def queue_size(self, agent_id: str = None) -> int:
+        """Warteschlangen-Länge für einen Agent (oder gesamt)."""
+        if agent_id:
+            pending = self._queues[agent_id].qsize() if agent_id in self._queues else 0
+            running = 1 if agent_id in self._current else 0
+            return pending + running
+        return sum(
+            (q.qsize() + (1 if aid in self._current else 0))
+            for aid, q in self._queues.items()
+        )
+
+    def get_status(self) -> str:
+        """Formatierter Queue-Status für /queue und /status."""
+        if not self._queues and not self._current:
+            return "📋 Warteschlange: leer"
+
+        lines = ["📋 Warteschlange:"]
+        total_pending = 0
+        total_done = sum(self._stats.values())
+
+        for agent_id in sorted(set(list(self._queues.keys()) + list(self._current.keys()))):
+            pending = self._queues[agent_id].qsize() if agent_id in self._queues else 0
+            total_pending += pending
+            done = self._stats.get(agent_id, 0)
+
+            if agent_id in self._current:
+                job = self._current[agent_id]
+                elapsed = (datetime.now() - job.get("start", job["enqueued"])).total_seconds()
+                title = job.get("title", job["prompt"][:40])
+                lines.append(
+                    f"  🔄 [{agent_id}] Läuft seit {int(elapsed)}s: '{title}'"
+                )
+                if pending > 0:
+                    # Wartende Jobs mit Titel auflisten
+                    lines.append(f"     ⏳ {pending} Job(s) warten:")
+                    # Queue-Items auslesen (peek)
+                    q = self._queues[agent_id]
+                    for idx, queued_job in enumerate(q._queue, 1):
+                        qtitle = queued_job.get("title", queued_job["prompt"][:40])
+                        lines.append(f"        {idx}. {qtitle}")
+            elif pending > 0:
+                lines.append(f"  ⏳ [{agent_id}] {pending} Job(s) warten")
+
+            if done > 0:
+                lines.append(f"     ✅ {done} verarbeitet (Session)")
+
+        if total_pending == 0 and not self._current:
+            lines.append("  ✅ Alle Jobs abgearbeitet")
+
+        lines.append(f"  Gesamt verarbeitet: {total_done}")
+        return "\n".join(lines)
+
+
+claude_queue = ClaudeQueue()
+
 
 def load_agents() -> dict:
     """Lädt die Agenten-Konfiguration aus agents.json."""
@@ -122,9 +398,45 @@ def save_sessions(sessions: dict):
         json.dump(sessions, f, indent=2)
 
 
+MAX_SESSION_SIZE_MB = 5  # Session-Transcript > 5 MB → automatisch rotieren
+
+
+def _session_transcript_path(session_id: str) -> Path:
+    """Pfad zur Claude-Session-Transcript-Datei."""
+    project_dir = Path.home() / ".claude" / "projects" / "-home-aroc-projects-chat-agent"
+    return project_dir / f"{session_id}.jsonl"
+
+
+def _check_session_size(agent_id: str, session_id: str) -> bool:
+    """Prüft ob Session-Transcript zu groß ist. Gibt True zurück wenn rotiert wurde."""
+    transcript = _session_transcript_path(session_id)
+    if not transcript.exists():
+        return False
+
+    size_mb = transcript.stat().st_size / (1024 * 1024)
+    if size_mb > MAX_SESSION_SIZE_MB:
+        log.warning(
+            "🔄 Session-Rotation: Agent '%s' Transcript %.1f MB > %d MB Limit. Neue Session.",
+            agent_id, size_mb, MAX_SESSION_SIZE_MB,
+        )
+        reset_session(agent_id)
+        return True
+    return False
+
+
 def get_session_info(agent_id: str) -> tuple[str, bool]:
-    """Gibt (session_id, is_new) für einen Agenten zurück."""
+    """Gibt (session_id, is_new) für einen Agenten zurück.
+
+    Rotiert automatisch wenn das Transcript > MAX_SESSION_SIZE_MB ist.
+    """
     sessions = load_sessions()
+
+    # Bestehende Session prüfen → ggf. rotieren
+    if agent_id in sessions:
+        old_id = sessions[agent_id]
+        if _check_session_size(agent_id, old_id):
+            sessions = load_sessions()  # Neu laden nach reset
+
     if agent_id not in sessions:
         new_id = str(uuid.uuid4())
         sessions[agent_id] = new_id
@@ -351,6 +663,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     scheduler_info = scheduler.get_status() if scheduler else "Scheduler: nicht initialisiert"
     reminder_info = reminder_mgr.get_stats()
     sync_info = knowledge_sync.get_sync_status()
+    queue_info = claude_queue.get_status()
     await update.message.reply_text(
         f"Bot läuft.\n"
         f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
@@ -358,6 +671,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Working Dir: {WORKING_DIR}\n"
         f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)\n"
         f"2FA: verifiziert\n\n"
+        f"{queue_info}\n\n"
         f"{reminder_info}\n\n"
         f"{sync_info}\n\n"
         f"{scheduler_info}"
@@ -422,58 +736,10 @@ async def cmd_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def _run_claude_background(prompt: str, agent: dict, chat_id: str, message):
-    """Asynchrone Claude-Ausführung im Hintergrund ohne Timeout.
+CLAUDE_MAX_RUNTIME = 600  # Safety-Timeout: 10 Minuten max pro Aufruf
 
-    - Startet Claude als Background-Task
-    - Zeigt Typing-Indikator
-    - Sendet Ergebnis per Reply wenn fertig
-    - RAG-Integration automatisch
-    """
-    typing = TypingLoop(message.chat)
-    typing.start()
-    start = datetime.now()
-    try:
-        cmd = build_claude_cmd(prompt, agent, chat_id)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(WORKING_DIR),
-        )
-        # KEIN Timeout – warte bis Prozess fertig ist
-        stdout, stderr = await proc.communicate()
-        elapsed = (datetime.now() - start).total_seconds()
-        output = stdout.decode().strip()
-        if stderr.decode().strip():
-            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Claude [%s] fertig in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
 
-        # Speichere Interaktion für RAG-Memory
-        try:
-            rag.store_interaction(
-                user_message=prompt,
-                assistant_response=output,
-                chat_id=chat_id,
-                model=agent.get("model", "unknown")
-            )
-        except Exception as e:
-            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
-        # Sende Ergebnis
-        if not output.strip():
-            await message.reply_text("(keine Ausgabe)")
-        else:
-            for i in range(0, len(output), 4000):
-                await message.reply_text(output[i:i+4000])
-    except FileNotFoundError:
-        log.error("claude CLI nicht gefunden")
-        await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
-    except Exception as e:
-        log.exception("Fehler in _run_claude_background: %s", e)
-        await message.reply_text(f"Fehler: {e}")
-    finally:
-        typing.stop()
+## _run_claude_background und _kill_old_claude entfernt – ersetzt durch ClaudeQueue
 
 
 async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -493,10 +759,15 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log.info("CMD /claude [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "/claude", prompt, agent.get("name", "?"))
 
-    # Starte Claude im Hintergrund und antworte sofort
+    # Job in Warteschlange einreihen
     chat_id = str(update.message.chat_id)
-    asyncio.create_task(_run_claude_background(prompt, agent, chat_id, update.message))
-    await update.message.reply_text("⏳ Claude läuft...")
+    agent_id = agent.get("id", "default")
+    title = f"/claude: {prompt[:60]}"
+    position = await claude_queue.enqueue(agent_id, prompt, agent, chat_id, update.message, title=title)
+    if position == 0:
+        await update.message.reply_text("⏳ Claude läuft...")
+    else:
+        await update.message.reply_text(f"📋 In Warteschlange (Position {position}): \"{title}\"\nDeine Anfrage wird bearbeitet sobald die vorherige fertig ist.")
 
 
 async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -542,58 +813,7 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         typing.stop()
 
 
-async def _run_photo_analysis_background(prompt: str, agent: dict, chat_id: str, message, tmp_path: Path):
-    """Asynchrone Bildanalyse im Hintergrund ohne Timeout.
-
-    - Startet Claude ohne Timeout
-    - Räumt temporäre Datei auf wenn fertig
-    - Zeigt Typing-Indikator
-    """
-    typing = TypingLoop(message.chat)
-    typing.start()
-    start = datetime.now()
-    try:
-        cmd = build_claude_cmd(prompt, agent, chat_id)
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=str(WORKING_DIR),
-        )
-        # KEIN Timeout – warte bis Prozess fertig ist
-        stdout, stderr = await proc.communicate()
-        elapsed = (datetime.now() - start).total_seconds()
-        output = stdout.decode().strip()
-        if stderr.decode().strip():
-            output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-        log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent["id"], elapsed, len(output))
-
-        # Speichere Interaktion für RAG-Memory
-        try:
-            rag.store_interaction(
-                user_message=prompt,
-                assistant_response=output,
-                chat_id=chat_id,
-                model=agent.get("model", "unknown")
-            )
-        except Exception as e:
-            log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
-        # Sende Ergebnis
-        if not output.strip():
-            await message.reply_text("(keine Ausgabe)")
-        else:
-            for i in range(0, len(output), 4000):
-                await message.reply_text(output[i:i+4000])
-    except FileNotFoundError:
-        log.error("claude CLI nicht gefunden")
-        await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
-    except Exception as e:
-        log.exception("Fehler bei Bildanalyse: %s", e)
-        await message.reply_text(f"Fehler bei Bildanalyse: {e}")
-    finally:
-        tmp_path.unlink(missing_ok=True)
-        typing.stop()
+## _run_photo_analysis_background entfernt – ersetzt durch ClaudeQueue._execute_photo
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -624,10 +844,18 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Anweisung des Users: {caption}"
         )
 
-        # Starte Bildanalyse im Hintergrund
+        # Job in Warteschlange einreihen
         chat_id = str(update.message.chat_id)
-        asyncio.create_task(_run_photo_analysis_background(prompt, agent, chat_id, update.message, tmp_path))
-        await update.message.reply_text("⏳ Bildanalyse läuft...")
+        agent_id = agent.get("id", "default")
+        title = f"📷 Bild: {caption[:50]}"
+        position = await claude_queue.enqueue(
+            agent_id, prompt, agent, chat_id, update.message,
+            job_type="photo", tmp_path=tmp_path, title=title
+        )
+        if position == 0:
+            await update.message.reply_text("⏳ Bildanalyse läuft...")
+        else:
+            await update.message.reply_text(f"📋 Bildanalyse in Warteschlange (Position {position}): \"{title}\"")
     except Exception as e:
         log.exception("Fehler beim Foto-Download: %s", e)
         await update.message.reply_text(f"Fehler beim Foto-Download: {e}")
@@ -663,10 +891,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
     await log_request(update.effective_user.username, "Freitext", prompt, agent.get("name", "?"))
 
-    # Starte Claude im Hintergrund und antworte sofort
+    # Job in Warteschlange einreihen
     chat_id = str(update.message.chat_id)
-    asyncio.create_task(_run_claude_background(prompt, agent, chat_id, update.message))
-    await update.message.reply_text("⏳ Claude läuft...")
+    agent_id = agent.get("id", "default")
+    title = prompt[:60]
+    position = await claude_queue.enqueue(agent_id, prompt, agent, chat_id, update.message, title=title)
+    if position == 0:
+        await update.message.reply_text("⏳ Claude läuft...")
+    else:
+        await update.message.reply_text(f"📋 In Warteschlange (Position {position}): \"{title}\"\nDeine Anfrage wird bearbeitet sobald die vorherige fertig ist.")
+
+
+async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/queue – Warteschlangen-Status anzeigen."""
+    if not is_authorized(update):
+        return
+    if not tfa.verified:
+        await update.message.reply_text("Bot ist gesperrt. Bitte 2FA-Code eingeben:")
+        return
+
+    log.info("[/queue] von %s", update.effective_user.username)
+    await update.message.reply_text(claude_queue.get_status())
 
 
 async def cmd_newsession(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -937,6 +1182,7 @@ async def post_init(application: Application):
         BotCommand("bash", "Shell-Befehl ausführen"),
         BotCommand("vorlesen", "Text als Audio vorlesen"),
         BotCommand("newsession", "Frische Konversation starten"),
+        BotCommand("queue", "Warteschlange anzeigen"),
         BotCommand("cpu", "Claude CPU & Memory Auslastung"),
         BotCommand("sync", "Knowledge Base synchronisieren"),
         BotCommand("scheduler", "Scheduler-Status & Steuerung"),
@@ -993,6 +1239,7 @@ def main():
     app.add_handler(CommandHandler("bash", cmd_bash))
     app.add_handler(CommandHandler("vorlesen", cmd_vorlesen))
     app.add_handler(CommandHandler("newsession", cmd_newsession))
+    app.add_handler(CommandHandler("queue", cmd_queue))
     app.add_handler(CommandHandler("cpu", cmd_cpu))
     app.add_handler(CommandHandler("scheduler", cmd_scheduler))
     app.add_handler(CommandHandler("sync", cmd_sync))

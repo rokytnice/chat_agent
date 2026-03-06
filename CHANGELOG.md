@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.17.1] - 2026-03-06
+### Verbessert
+- **Queue: Titel für Jobs** 📋
+  - Jeder Job in der Warteschlange hat jetzt einen lesbaren Titel
+  - `/queue` und `/status` zeigen Titel statt abgeschnittener Prompts
+  - Bei Einreihung wird der Titel in der Bestätigung angezeigt
+  - Wartende Jobs werden einzeln mit Nummer und Titel aufgelistet
+  - Freitext, /claude und Bildanalyse vergeben automatisch passende Titel
+
+## [0.17.0] - 2026-03-04
+### Hinzugefügt
+- **Warteschlange (Queue) statt Kill** 📋
+  - Neue `ClaudeQueue`-Klasse ersetzt das alte Anti-Zombie Kill-System
+  - Neue Nachrichten werden **eingereiht** statt den laufenden Prozess abzubrechen
+  - Pro-Agent `asyncio.Queue` mit automatischem Worker-Management
+  - Worker startet automatisch bei erstem Job, beendet sich nach 5 Min Leerlauf
+  - Sequentielle Verarbeitung pro Agent – gleiche Claude-Session wird weiterverwendet
+  - User bekommt Feedback: "📋 In Warteschlange (Position X)"
+  - Bildanalyse (Photos) nutzt ebenfalls die Queue
+  - Job-Statistiken: verarbeitete Jobs pro Agent werden getrackt
+- **`/queue` Command** – Warteschlangen-Status anzeigen
+  - Zeigt laufende Jobs mit Laufzeit und Prompt-Vorschau
+  - Zeigt wartende Jobs pro Agent
+  - Zeigt verarbeitete Jobs (Session-Counter)
+- **`/status` erweitert** um Queue-Info
+### Entfernt
+- `_active_claude` Prozess-Tracker (ersetzt durch `ClaudeQueue`)
+- `_kill_old_claude()` Funktion (kein Kill mehr nötig)
+- `_run_claude_background()` Funktion (ersetzt durch `ClaudeQueue._execute_claude()`)
+- `_run_photo_analysis_background()` Funktion (ersetzt durch `ClaudeQueue._execute_photo()`)
+
+## [0.16.0] - 2026-03-04
+### Hinzugefügt
+- **Anti-Zombie Prozess-Tracker** 🔪
+  - `_active_claude` dict trackt alle laufenden Claude-Prozesse pro Agent
+  - `_kill_old_claude()` – killt vorherigen Prozess bevor neuer startet
+  - Neue Nachricht während Claude arbeitet → alter Prozess wird sauber beendet
+  - User bekommt Info: "Vorherige Anfrage abgebrochen, starte neue..."
+  - Gilt für `_run_claude_background()` UND `_run_photo_analysis_background()`
+- **Auto-Session-Rotation – Verhindert aufgeblähte Konversationen** 🔄
+  - Session-Transcript wird bei jedem Claude-Aufruf geprüft
+  - Bei > 5 MB automatisch frische Session gestartet (Limit: `MAX_SESSION_SIZE_MB`)
+  - Verhindert exponentiell wachsende Antwortzeiten durch riesige Kontexte
+  - `_check_session_size()` und `_session_transcript_path()` Hilfsfunktionen
+- **Safety-Timeout für Claude-Prozesse (10 Min)** ⏱️
+  - `CLAUDE_MAX_RUNTIME = 600` – verhindert Zombie-Prozesse
+  - Prozess wird nach Timeout sauber gekillt (`proc.kill()`)
+  - User bekommt Timeout-Nachricht mit Tipp für `/newsession`
+  - Warnung im Log bei Antwortzeiten > 120s
+### Behoben
+- **Zombie-Claude-Prozesse** – Alte Prozesse liefen tagelang weiter (PID seit 28.02.)
+- **31 MB Session-Transcript** – Assistant-Session auf frische ID zurückgesetzt
+- **Leere Antworten (0 Zeichen)** – durch Session-Bloat verursacht, jetzt durch Auto-Rotation verhindert
+
 ## [0.15.0] - 2026-03-03
 ### Hinzugefügt
 - **Asynchrone Hintergrund-Tasks – Claude ohne Timeout** ⏳
