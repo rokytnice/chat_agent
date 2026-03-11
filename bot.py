@@ -90,6 +90,9 @@ class ClaudeQueue:
         self._workers: dict[str, asyncio.Task] = {}      # agent_id → Worker-Task
         self._current: dict[str, dict] = {}               # agent_id → laufender Job
         self._stats: dict[str, int] = {}                  # agent_id → verarbeitete Jobs
+        self._last_completed: dict[str, datetime] = {}    # agent_id → letzter Abschluss
+        self._job_counter: int = 0                         # Fortlaufende Job-ID
+        self._history: list[dict] = []                     # Alle Jobs (max 50)
 
     def _ensure_queue(self, agent_id: str):
         """Stellt sicher dass Queue und Worker für Agent existieren."""
@@ -102,7 +105,9 @@ class ClaudeQueue:
                       tmp_path: Path = None, title: str = None) -> int:
         """Fügt Job in Queue ein. Gibt Queue-Position zurück (0 = wird sofort verarbeitet)."""
         self._ensure_queue(agent_id)
+        self._job_counter += 1
         job = {
+            "id": self._job_counter,
             "prompt": prompt,
             "agent": agent,
             "chat_id": chat_id,
@@ -111,6 +116,7 @@ class ClaudeQueue:
             "tmp_path": tmp_path,
             "title": title or prompt[:50],
             "enqueued": datetime.now(),
+            "status": "⏳",
         }
         position = self._queues[agent_id].qsize()
         # Wenn gerade ein Job läuft, ist die tatsächliche Position +1
@@ -141,14 +147,22 @@ class ClaudeQueue:
                     break
 
                 self._current[agent_id] = job
+                job["status"] = "🔄"
+                job["started"] = datetime.now()
+                self._add_history(job)
                 try:
                     if job["job_type"] == "photo":
                         await self._execute_photo(agent_id, job)
                     else:
                         await self._execute_claude(agent_id, job)
                     self._stats[agent_id] = self._stats.get(agent_id, 0) + 1
+                    self._last_completed[agent_id] = datetime.now()
+                    job["status"] = "✅"
+                    job["completed"] = datetime.now()
                 except Exception as e:
                     log.exception("Worker [%s] Fehler bei Job: %s", agent_id, e)
+                    job["status"] = "❌"
+                    job["completed"] = datetime.now()
                     try:
                         await job["message"].reply_text(f"❌ Fehler: {e}")
                     except Exception:
@@ -298,6 +312,12 @@ class ClaudeQueue:
                 tmp_path.unlink(missing_ok=True)
             typing.stop()
 
+    def _add_history(self, job: dict):
+        """Fügt Job zur History hinzu (max 50 Einträge)."""
+        self._history.append(job)
+        if len(self._history) > 50:
+            self._history = self._history[-50:]
+
     def queue_size(self, agent_id: str = None) -> int:
         """Warteschlangen-Länge für einen Agent (oder gesamt)."""
         if agent_id:
@@ -310,44 +330,51 @@ class ClaudeQueue:
         )
 
     def get_status(self) -> str:
-        """Formatierter Queue-Status für /queue und /status."""
-        if not self._queues and not self._current:
+        """Formatierter Queue-Status als Tabelle für /queue und /status."""
+        # Alle Einträge sammeln: History + wartende Jobs
+        rows = []
+
+        # History (abgeschlossene + laufende)
+        for job in self._history:
+            ts = job.get("completed") or job.get("started") or job["enqueued"]
+            rows.append({
+                "id": job.get("id", "?"),
+                "status": job.get("status", "?"),
+                "title": job.get("title", job["prompt"][:40]),
+                "time": ts.strftime("%H:%M:%S"),
+                "sort": ts,
+            })
+
+        # Wartende Jobs aus den Queues (noch nicht in History)
+        for agent_id, q in self._queues.items():
+            for queued_job in q._queue:
+                if queued_job.get("id") not in [r["id"] for r in rows]:
+                    rows.append({
+                        "id": queued_job.get("id", "?"),
+                        "status": "⏳",
+                        "title": queued_job.get("title", queued_job["prompt"][:40]),
+                        "time": queued_job["enqueued"].strftime("%H:%M:%S"),
+                        "sort": queued_job["enqueued"],
+                    })
+
+        if not rows:
             return "📋 Warteschlange: leer"
 
-        lines = ["📋 Warteschlange:"]
-        total_pending = 0
-        total_done = sum(self._stats.values())
+        # Nach ID sortieren
+        rows.sort(key=lambda r: r["id"] if isinstance(r["id"], int) else 0)
 
-        for agent_id in sorted(set(list(self._queues.keys()) + list(self._current.keys()))):
-            pending = self._queues[agent_id].qsize() if agent_id in self._queues else 0
-            total_pending += pending
-            done = self._stats.get(agent_id, 0)
+        # Tabelle bauen
+        lines = ["📋 Queue-Status:"]
+        lines.append("ID  | Status | Zeit     | Titel")
+        lines.append("----|--------|----------|------")
+        for r in rows[-20:]:  # Letzte 20 anzeigen
+            rid = str(r["id"]).rjust(3)
+            lines.append(f"{rid} | {r['status']}     | {r['time']} | {r['title'][:45]}")
 
-            if agent_id in self._current:
-                job = self._current[agent_id]
-                elapsed = (datetime.now() - job.get("start", job["enqueued"])).total_seconds()
-                title = job.get("title", job["prompt"][:40])
-                lines.append(
-                    f"  🔄 [{agent_id}] Läuft seit {int(elapsed)}s: '{title}'"
-                )
-                if pending > 0:
-                    # Wartende Jobs mit Titel auflisten
-                    lines.append(f"     ⏳ {pending} Job(s) warten:")
-                    # Queue-Items auslesen (peek)
-                    q = self._queues[agent_id]
-                    for idx, queued_job in enumerate(q._queue, 1):
-                        qtitle = queued_job.get("title", queued_job["prompt"][:40])
-                        lines.append(f"        {idx}. {qtitle}")
-            elif pending > 0:
-                lines.append(f"  ⏳ [{agent_id}] {pending} Job(s) warten")
-
-            if done > 0:
-                lines.append(f"     ✅ {done} verarbeitet (Session)")
-
-        if total_pending == 0 and not self._current:
-            lines.append("  ✅ Alle Jobs abgearbeitet")
-
-        lines.append(f"  Gesamt verarbeitet: {total_done}")
+        total = sum(self._stats.values())
+        pending = sum(q.qsize() for q in self._queues.values())
+        running = len(self._current)
+        lines.append(f"\n🔄 {running} laufend | ⏳ {pending} wartend | ✅ {total} erledigt")
         return "\n".join(lines)
 
 

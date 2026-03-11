@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.17.3] - 2026-03-10
+### Aktualisiert
+- **WordPress-Startseite komplett neu gestaltet** 🌐
+  - Modernes Layout mit Header, Skills (3-Spalten), Projekte mit Firmenlogos und Kontakt-Bereich
+  - Firmenlogos von Wikimedia Commons eingebunden: Deutsche Bahn, BWI, Mercedes Benz, BMW, Volkswagen, Deutsche Post
+  - Text-Labels für Firmen ohne frei verfügbare Logos: KV digital, GEMA, Conrad, 4flow, MyToys
+  - Skills-Bereich mit Emoji-Icons in 3 Spalten (Sprachen, Frameworks, Cloud/DevOps, Datenbanken, Messaging, Architektur)
+  - Kontakt-Bereich mit 2 Spalten und Status-Info
+  - URL: https://andrerochlitz.wordpress.com/
+
+## [0.17.2] - 2026-03-09
+### Verbessert
+- **Queue: Tabellenansicht mit ID, Titel und Zeitstempel** 📊
+  - Jeder Job bekommt eine fortlaufende ID
+  - `/queue` zeigt jetzt eine Tabelle: ID | Status | Zeit | Titel
+  - Jeder Request eine eigene Zeile (keine Zusammenfassung mehr)
+  - Job-History speichert die letzten 50 Jobs
+  - Status-Emoji pro Job: ⏳ wartend, 🔄 läuft, ✅ fertig, ❌ Fehler
+  - Zusammenfassung am Ende: laufend / wartend / erledigt
+
 ## [0.17.1] - 2026-03-06
 ### Verbessert
 - **Queue: Titel für Jobs** 📋
