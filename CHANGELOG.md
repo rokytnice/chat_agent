@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.18.0] - 2026-03-14
+### Neu
+- **Fake-Shop News Radar Agent** 📰
+  - Neuer Agent `newsradar` sucht täglich nach aktuellen Nachrichten über Fake-Shops, Online-Betrug und Internetkriminalität
+  - Python-Script `lib/news_agent.py` fetcht Google News RSS für 7 verschiedene Suchbegriffe
+  - Automatische Duplikat-Erkennung über Hash-basiertes State-Management (`data/news_seen.json`)
+  - Generiert WordPress-Blogposts im Fake Defense AI Design (dunkles Farbschema)
+  - Artikel werden mit farbcodierten Kategorie-Tags versehen (Warnung, Polizei, Verbraucherschutz, Phishing, News)
+  - Scheduled Task läuft täglich um 21:00 Uhr (`0 21 * * *`)
+  - Workflow: News fetchen → WordPress-Post erstellen → Blog-Übersicht aktualisieren → Twitter/X Post → Telegram-Benachrichtigung
+  - **Twitter/X Auto-Post**: Nach jedem neuen Blogbeitrag wird automatisch ein Tweet **pro Artikel** auf @FakeDefenseAI gepostet (Batch-Modus mit 5s Pause zwischen Tweets)
+  - `lib/twitter_poster.py`: Neue Funktion `post_article_tweets()` und CLI `--batch` Modus für mehrere Tweets
+  - Neue Dependency: `feedparser>=6.0.0`
+  - CLI-Optionen: `--dry-run` (Vorschau), `--force` (erneut ausführen), `--lookback N` (letzte N Tage)
+  - Deutsche + englische Nachrichtenquellen (13 Suchbegriffe)
+  - News-Beiträge werden als Top-Level Pages angelegt (nicht als Blog-Posts)
+
+### Aktualisiert
+- **WordPress Fake Defense AI Farbschema vereinheitlicht** 🎨
+  - Alle 6 Unterseiten (About, Features, How It Works, Contact, Get Protected, Blog) auf das Homepage-Farbschema umgestellt
+  - Farb-Mapping: #1A2332→#0d1137, #2A3444→#151a45, #90A4AE→#8899cc, #E0E0E0→#ffffff, #4FC3F7→#00b4d8
+  - Copyright-Jahr auf 2026 aktualisiert
+- **Contact-Seite E-Mail aktualisiert** ✉️
+  - Alle E-Mail-Adressen auf fake.defense.ai@gmail.com geändert (vorher: Rochlitz.Consulting@gmail.com)
+
 ## [0.17.3] - 2026-03-10
 ### Aktualisiert
 - **WordPress-Startseite komplett neu gestaltet** 🌐

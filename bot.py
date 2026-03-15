@@ -8,7 +8,6 @@ import asyncio
 import logging
 import subprocess
 import tempfile
-import uuid
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -28,6 +27,7 @@ from telegram.constants import ChatAction
 from lib.auth import TwoFactorAuth
 from lib.worker import log_request
 from lib.rag_integration import RAGIntegration
+from lib.claude_pipe import ClaudePipe
 from lib.scheduler import TaskScheduler
 from lib.reminders import ReminderManager
 from lib.knowledge_sync import KnowledgeSync
@@ -41,7 +41,6 @@ LOG_DIR = WORKING_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 DATA_DIR = WORKING_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
-SESSIONS_FILE = DATA_DIR / "sessions.json"
 
 # --- Logging Setup ---
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
@@ -77,33 +76,30 @@ scheduler: TaskScheduler = None  # Wird in post_init gestartet
 AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
 ACTIVE_AGENT = {}  # Wird beim Start geladen
 
-# --- Claude Queue (Warteschlange statt Kill) ---
-class ClaudeQueue:
-    """Pro-Agent Warteschlange für Claude-Anfragen.
+# --- Claude Pipe (persistente Session + Queue) ---
+class PipeQueue:
+    """Warteschlange die ClaudePipe für die Ausführung nutzt.
 
-    Statt laufende Prozesse zu killen werden neue Nachrichten eingereiht
-    und sequentiell über die gleiche Claude-Session abgearbeitet.
+    Kombiniert die Queue-Logik (sequentielle Verarbeitung, Status-Tracking)
+    mit dem persistenten Session-Management von ClaudePipe.
     """
 
-    def __init__(self):
-        self._queues: dict[str, asyncio.Queue] = {}     # agent_id → Queue
-        self._workers: dict[str, asyncio.Task] = {}      # agent_id → Worker-Task
-        self._current: dict[str, dict] = {}               # agent_id → laufender Job
-        self._stats: dict[str, int] = {}                  # agent_id → verarbeitete Jobs
-        self._last_completed: dict[str, datetime] = {}    # agent_id → letzter Abschluss
-        self._job_counter: int = 0                         # Fortlaufende Job-ID
-        self._history: list[dict] = []                     # Alle Jobs (max 50)
+    def __init__(self, pipe: ClaudePipe):
+        self._pipe = pipe
+        self._queues: dict[str, asyncio.Queue] = {}
+        self._workers: dict[str, asyncio.Task] = {}
+        self._current: dict[str, dict] = {}
+        self._job_counter: int = 0
+        self._history: list[dict] = []
 
     def _ensure_queue(self, agent_id: str):
-        """Stellt sicher dass Queue und Worker für Agent existieren."""
         if agent_id not in self._queues:
             self._queues[agent_id] = asyncio.Queue()
-            self._stats[agent_id] = 0
 
     async def enqueue(self, agent_id: str, prompt: str, agent: dict,
                       chat_id: str, message, job_type: str = "text",
                       tmp_path: Path = None, title: str = None) -> int:
-        """Fügt Job in Queue ein. Gibt Queue-Position zurück (0 = wird sofort verarbeitet)."""
+        """Fügt Job in Queue ein. Gibt Queue-Position zurück."""
         self._ensure_queue(agent_id)
         self._job_counter += 1
         job = {
@@ -119,14 +115,12 @@ class ClaudeQueue:
             "status": "⏳",
         }
         position = self._queues[agent_id].qsize()
-        # Wenn gerade ein Job läuft, ist die tatsächliche Position +1
         if agent_id in self._current:
             position += 1
         await self._queues[agent_id].put(job)
         log.info("📋 Queue [%s]: Job eingereiht (Position %d, Typ=%s, Prompt='%s...')",
                  agent_id, position, job_type, prompt[:50])
 
-        # Worker starten falls noch keiner läuft
         if agent_id not in self._workers or self._workers[agent_id].done():
             self._workers[agent_id] = asyncio.create_task(self._worker(agent_id))
             log.info("🔧 Queue [%s]: Worker gestartet", agent_id)
@@ -134,7 +128,7 @@ class ClaudeQueue:
         return position
 
     async def _worker(self, agent_id: str):
-        """Endlos-Loop: nimmt Jobs aus Queue und führt sie sequentiell aus."""
+        """Sequentielle Job-Verarbeitung über ClaudePipe."""
         log.info("🔧 Worker [%s] gestartet", agent_id)
         try:
             while True:
@@ -150,13 +144,9 @@ class ClaudeQueue:
                 job["status"] = "🔄"
                 job["started"] = datetime.now()
                 self._add_history(job)
+
                 try:
-                    if job["job_type"] == "photo":
-                        await self._execute_photo(agent_id, job)
-                    else:
-                        await self._execute_claude(agent_id, job)
-                    self._stats[agent_id] = self._stats.get(agent_id, 0) + 1
-                    self._last_completed[agent_id] = datetime.now()
+                    await self._execute_job(agent_id, job)
                     job["status"] = "✅"
                     job["completed"] = datetime.now()
                 except Exception as e:
@@ -170,156 +160,45 @@ class ClaudeQueue:
                 finally:
                     self._current.pop(agent_id, None)
                     self._queues[agent_id].task_done()
-                    # Nächsten Job in Queue benachrichtigen
-                    await self._notify_next(agent_id)
         finally:
             self._workers.pop(agent_id, None)
             log.info("🔧 Worker [%s] beendet", agent_id)
 
-    async def _notify_next(self, agent_id: str):
-        """Informiert den nächsten Job in der Queue dass er dran ist."""
-        if agent_id in self._queues and not self._queues[agent_id].empty():
-            remaining = self._queues[agent_id].qsize()
-            log.info("📋 Queue [%s]: %d Job(s) warten noch", agent_id, remaining)
-
-    async def _execute_claude(self, agent_id: str, job: dict):
-        """Führt einen Claude-Job aus (Text/Freitext)."""
-        prompt = job["prompt"]
-        agent = job["agent"]
-        chat_id = job["chat_id"]
+    async def _execute_job(self, agent_id: str, job: dict):
+        """Führt einen Job über ClaudePipe aus."""
         message = job["message"]
-
         typing = TypingLoop(message.chat)
         typing.start()
-        start = datetime.now()
-        proc = None
-        try:
-            cmd = build_claude_cmd(prompt, agent, chat_id)
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(WORKING_DIR),
-            )
-            job["proc"] = proc
-            job["start"] = start
 
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=CLAUDE_MAX_RUNTIME
-                )
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
-                elapsed = (datetime.now() - start).total_seconds()
-                log.error("⏱️ Claude [%s] TIMEOUT nach %.0fs – Prozess gekillt (PID %d)", agent_id, elapsed, proc.pid)
-                await message.reply_text(
-                    f"⏱️ Claude hat nach {int(elapsed)}s nicht geantwortet und wurde gestoppt.\n"
-                    f"Tipp: /newsession für eine frische Konversation."
-                )
+        try:
+            result = await self._pipe.execute(
+                prompt=job["prompt"],
+                agent=job["agent"],
+                chat_id=job["chat_id"],
+            )
+
+            if result["error"]:
+                await message.reply_text(f"❌ {result['error']}")
                 return
 
-            elapsed = (datetime.now() - start).total_seconds()
-            output = stdout.decode().strip()
-            if stderr.decode().strip():
-                output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-            log.info("Claude [%s] fertig in %.1fs (%d Zeichen)", agent_id, elapsed, len(output))
-            if elapsed > 120:
-                log.warning("⚠️ Claude [%s] langsam: %.1fs", agent_id, elapsed)
-
-            try:
-                rag.store_interaction(
-                    user_message=prompt,
-                    assistant_response=output,
-                    chat_id=chat_id,
-                    model=agent.get("model", "unknown")
-                )
-            except Exception as e:
-                log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
+            output = result["output"]
             if not output.strip():
                 await message.reply_text("(keine Ausgabe)")
             else:
                 for i in range(0, len(output), 4000):
-                    await message.reply_text(output[i:i+4000])
-        except FileNotFoundError:
-            log.error("claude CLI nicht gefunden")
-            await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
+                    await message.reply_text(output[i:i + 4000])
         finally:
-            typing.stop()
-
-    async def _execute_photo(self, agent_id: str, job: dict):
-        """Führt einen Bildanalyse-Job aus."""
-        prompt = job["prompt"]
-        agent = job["agent"]
-        chat_id = job["chat_id"]
-        message = job["message"]
-        tmp_path = job.get("tmp_path")
-
-        typing = TypingLoop(message.chat)
-        typing.start()
-        start = datetime.now()
-        proc = None
-        try:
-            cmd = build_claude_cmd(prompt, agent, chat_id)
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=str(WORKING_DIR),
-            )
-            job["proc"] = proc
-            job["start"] = start
-
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=CLAUDE_MAX_RUNTIME
-                )
-            except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
-                elapsed = (datetime.now() - start).total_seconds()
-                log.error("⏱️ Bildanalyse [%s] TIMEOUT nach %.0fs – gekillt", agent_id, elapsed)
-                await message.reply_text(f"⏱️ Bildanalyse Timeout nach {int(elapsed)}s.")
-                return
-
-            elapsed = (datetime.now() - start).total_seconds()
-            output = stdout.decode().strip()
-            if stderr.decode().strip():
-                output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
-            log.info("Bildanalyse [%s] in %.1fs (%d Zeichen)", agent_id, elapsed, len(output))
-
-            try:
-                rag.store_interaction(
-                    user_message=prompt,
-                    assistant_response=output,
-                    chat_id=chat_id,
-                    model=agent.get("model", "unknown")
-                )
-            except Exception as e:
-                log.warning("RAG-Speichern fehlgeschlagen: %s", e)
-
-            if not output.strip():
-                await message.reply_text("(keine Ausgabe)")
-            else:
-                for i in range(0, len(output), 4000):
-                    await message.reply_text(output[i:i+4000])
-        except FileNotFoundError:
-            log.error("claude CLI nicht gefunden")
-            await message.reply_text("Fehler: 'claude' CLI nicht gefunden. Ist Claude Code installiert?")
-        finally:
-            if tmp_path:
-                tmp_path.unlink(missing_ok=True)
+            # Temp-Dateien aufräumen (z.B. Fotos)
+            if job.get("tmp_path"):
+                job["tmp_path"].unlink(missing_ok=True)
             typing.stop()
 
     def _add_history(self, job: dict):
-        """Fügt Job zur History hinzu (max 50 Einträge)."""
         self._history.append(job)
         if len(self._history) > 50:
             self._history = self._history[-50:]
 
     def queue_size(self, agent_id: str = None) -> int:
-        """Warteschlangen-Länge für einen Agent (oder gesamt)."""
         if agent_id:
             pending = self._queues[agent_id].qsize() if agent_id in self._queues else 0
             running = 1 if agent_id in self._current else 0
@@ -330,11 +209,9 @@ class ClaudeQueue:
         )
 
     def get_status(self) -> str:
-        """Formatierter Queue-Status als Tabelle für /queue und /status."""
-        # Alle Einträge sammeln: History + wartende Jobs
+        """Formatierter Queue-Status als Tabelle."""
         rows = []
 
-        # History (abgeschlossene + laufende)
         for job in self._history:
             ts = job.get("completed") or job.get("started") or job["enqueued"]
             rows.append({
@@ -342,10 +219,8 @@ class ClaudeQueue:
                 "status": job.get("status", "?"),
                 "title": job.get("title", job["prompt"][:40]),
                 "time": ts.strftime("%H:%M:%S"),
-                "sort": ts,
             })
 
-        # Wartende Jobs aus den Queues (noch nicht in History)
         for agent_id, q in self._queues.items():
             for queued_job in q._queue:
                 if queued_job.get("id") not in [r["id"] for r in rows]:
@@ -354,31 +229,28 @@ class ClaudeQueue:
                         "status": "⏳",
                         "title": queued_job.get("title", queued_job["prompt"][:40]),
                         "time": queued_job["enqueued"].strftime("%H:%M:%S"),
-                        "sort": queued_job["enqueued"],
                     })
 
         if not rows:
             return "📋 Warteschlange: leer"
 
-        # Nach ID sortieren
         rows.sort(key=lambda r: r["id"] if isinstance(r["id"], int) else 0)
 
-        # Tabelle bauen
         lines = ["📋 Queue-Status:"]
         lines.append("ID  | Status | Zeit     | Titel")
         lines.append("----|--------|----------|------")
-        for r in rows[-20:]:  # Letzte 20 anzeigen
+        for r in rows[-20:]:
             rid = str(r["id"]).rjust(3)
             lines.append(f"{rid} | {r['status']}     | {r['time']} | {r['title'][:45]}")
 
-        total = sum(self._stats.values())
-        pending = sum(q.qsize() for q in self._queues.values())
-        running = len(self._current)
-        lines.append(f"\n🔄 {running} laufend | ⏳ {pending} wartend | ✅ {total} erledigt")
+        pipe_status = self._pipe.get_status()
+        lines.append(f"\n{pipe_status}")
         return "\n".join(lines)
 
 
-claude_queue = ClaudeQueue()
+# Globale Instanzen
+claude_pipe = ClaudePipe(rag=rag)
+claude_queue = PipeQueue(pipe=claude_pipe)
 
 
 def load_agents() -> dict:
@@ -410,114 +282,16 @@ def get_active_agent() -> dict:
 MCP_CONFIG_FILE = WORKING_DIR / "config" / "mcp_config.json"
 
 
-# --- Session-Verwaltung ---
-def load_sessions() -> dict:
-    """Lädt die Session-IDs aus data/sessions.json."""
-    if not SESSIONS_FILE.exists():
-        return {}
-    with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_sessions(sessions: dict):
-    """Speichert die Session-IDs in data/sessions.json."""
-    with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(sessions, f, indent=2)
-
-
-MAX_SESSION_SIZE_MB = 5  # Session-Transcript > 5 MB → automatisch rotieren
-
-
-def _session_transcript_path(session_id: str) -> Path:
-    """Pfad zur Claude-Session-Transcript-Datei."""
-    project_dir = Path.home() / ".claude" / "projects" / "-home-aroc-projects-chat-agent"
-    return project_dir / f"{session_id}.jsonl"
-
-
-def _check_session_size(agent_id: str, session_id: str) -> bool:
-    """Prüft ob Session-Transcript zu groß ist. Gibt True zurück wenn rotiert wurde."""
-    transcript = _session_transcript_path(session_id)
-    if not transcript.exists():
-        return False
-
-    size_mb = transcript.stat().st_size / (1024 * 1024)
-    if size_mb > MAX_SESSION_SIZE_MB:
-        log.warning(
-            "🔄 Session-Rotation: Agent '%s' Transcript %.1f MB > %d MB Limit. Neue Session.",
-            agent_id, size_mb, MAX_SESSION_SIZE_MB,
-        )
-        reset_session(agent_id)
-        return True
-    return False
-
-
-def get_session_info(agent_id: str) -> tuple[str, bool]:
-    """Gibt (session_id, is_new) für einen Agenten zurück.
-
-    Rotiert automatisch wenn das Transcript > MAX_SESSION_SIZE_MB ist.
-    """
-    sessions = load_sessions()
-
-    # Bestehende Session prüfen → ggf. rotieren
-    if agent_id in sessions:
-        old_id = sessions[agent_id]
-        if _check_session_size(agent_id, old_id):
-            sessions = load_sessions()  # Neu laden nach reset
-
-    if agent_id not in sessions:
-        new_id = str(uuid.uuid4())
-        sessions[agent_id] = new_id
-        save_sessions(sessions)
-        log.info("Neue Session-ID für Agent '%s': %s", agent_id, new_id)
-        return new_id, True
-    return sessions[agent_id], False
-
-
-def reset_session(agent_id: str) -> bool:
-    """Löscht die Session-ID für einen Agenten. Gibt True zurück wenn gelöscht."""
-    sessions = load_sessions()
-    if agent_id in sessions:
-        old_id = sessions.pop(agent_id)
-        save_sessions(sessions)
-        log.info("Session für Agent '%s' zurückgesetzt (war: %s)", agent_id, old_id)
-        return True
-    return False
+# --- Session-Verwaltung (delegiert an ClaudePipe) ---
+# Die alten Funktionen load_sessions, save_sessions, get_session_info,
+# reset_session, build_claude_cmd sind jetzt in lib/claude_pipe.py
 
 
 def build_claude_cmd(prompt: str, agent: dict = None, chat_id: str = None) -> list:
-    """Baut den Claude-CLI-Befehl mit Agent-System-Prompt, RAG-Kontext und MCP Playwright."""
+    """Wrapper für Abwärtskompatibilität (Scheduler etc.)."""
     if agent is None:
         agent = get_active_agent()
-    agent_id = agent.get("id", "default")
-    session_id, is_new = get_session_info(agent_id)
-    if is_new:
-        cmd = ["claude", "--print", "--session-id", session_id, "--dangerously-skip-permissions"]
-    else:
-        cmd = ["claude", "--print", "--resume", session_id, "--dangerously-skip-permissions"]
-    # MCP Playwright SSE-Server einbinden (persistente Session auf Port 8931)
-    if MCP_CONFIG_FILE.exists():
-        cmd += ["--mcp-config", str(MCP_CONFIG_FILE)]
-
-    # RAG-Kontext-Anreicherung: Enreichere System-Prompt mit semantischem Memory
-    system_prompt = agent.get("system_prompt", "")
-    if system_prompt:
-        try:
-            system_prompt = rag.enrich_user_message(
-                user_query=prompt,
-                system_prompt=system_prompt,
-                chat_id=chat_id or "default"
-            )
-        except Exception as e:
-            log.warning("RAG-Anreicherung fehlgeschlagen: %s", e)
-            # Fallback: Verwende ursprünglichen Prompt
-
-    if system_prompt:
-        cmd += ["--system-prompt", system_prompt]
-    model = agent.get("model")
-    if model:
-        cmd += ["--model", model]
-    cmd.append(prompt)
-    return cmd
+    return claude_pipe.build_cmd(prompt, agent, chat_id)
 
 
 class TypingLoop:
@@ -691,6 +465,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reminder_info = reminder_mgr.get_stats()
     sync_info = knowledge_sync.get_sync_status()
     queue_info = claude_queue.get_status()
+    pipe_info = claude_pipe.get_status()
     await update.message.reply_text(
         f"Bot läuft.\n"
         f"Agent: {agent.get('emoji', '')} {agent.get('name', '?')} ({agent.get('id', '?')})\n"
@@ -698,6 +473,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Working Dir: {WORKING_DIR}\n"
         f"Log: {LOG_FILE} ({log_size / 1024:.1f} KB)\n"
         f"2FA: verifiziert\n\n"
+        f"{pipe_info}\n\n"
         f"{queue_info}\n\n"
         f"{reminder_info}\n\n"
         f"{sync_info}\n\n"
@@ -954,7 +730,7 @@ async def cmd_newsession(update: Update, context: ContextTypes.DEFAULT_TYPE):
     agent_id = agent.get("id", "default")
     await log_request(update.effective_user.username, "/newsession", agent_id, agent.get("name", "?"))
 
-    if reset_session(agent_id):
+    if claude_pipe.reset_session(agent_id):
         await update.message.reply_text(
             f"{agent.get('emoji', '')} Session für {agent.get('name', agent_id)} zurückgesetzt.\n"
             "Nächste Nachricht startet eine frische Konversation."
