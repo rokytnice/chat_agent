@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Persistente MCP Playwright Browser-Session.
 
-Startet den @playwright/mcp Server als SSE-Daemon und stellt
-eine Python-Schnittstelle bereit, die den Browser persistent hält.
+Verbindet sich zum echten Chrome-Browser über CDP (Chrome DevTools Protocol).
+Chrome läuft headed mit GPU-Support und persistentem Profil.
+
+Architektur:
+    Chrome (headed, CDP:9222) ← MCP Playwright (SSE:8931) ← Python-API
 """
 
 import asyncio
@@ -17,24 +20,34 @@ log = logging.getLogger("telegram_bridge.browser")
 
 WORKING_DIR = Path(__file__).parent.parent
 MCP_PORT = 8931
+CDP_PORT = 9222
 MCP_PROCESS: subprocess.Popen | None = None
 
 
 def start_mcp_server() -> subprocess.Popen:
-    """Startet den MCP Playwright Server als Hintergrundprozess."""
+    """Startet den MCP Playwright Server mit CDP-Endpoint zum laufenden Chrome."""
     global MCP_PROCESS
 
     # Falls schon laufend, erst beenden
     stop_mcp_server()
 
+    # Chrome sicherstellen (Auto-Start wenn nötig)
+    try:
+        from lib.chrome_manager import ensure_running
+        if not ensure_running():
+            log.warning("Chrome konnte nicht gestartet werden – MCP wird trotzdem gestartet")
+    except Exception as e:
+        log.warning("Chrome-Check fehlgeschlagen: %s", e)
+
+    # MCP verbindet sich zum laufenden Chrome über CDP
     cmd = [
         "npx", "@playwright/mcp@latest",
         "--port", str(MCP_PORT),
-        "--headless",
+        "--cdp-endpoint", f"http://localhost:{CDP_PORT}",
         "--caps", "vision",
         "--shared-browser-context",
     ]
-    log.info("Starte MCP Playwright Server: %s", " ".join(cmd))
+    log.info("Starte MCP Playwright Server (CDP): %s", " ".join(cmd))
 
     MCP_PROCESS = subprocess.Popen(
         cmd,
@@ -43,7 +56,7 @@ def start_mcp_server() -> subprocess.Popen:
         cwd=str(WORKING_DIR),
         start_new_session=True,
     )
-    log.info("MCP Server gestartet PID=%d auf Port %d", MCP_PROCESS.pid, MCP_PORT)
+    log.info("MCP Server gestartet PID=%d auf Port %d (CDP: %d)", MCP_PROCESS.pid, MCP_PORT, CDP_PORT)
     return MCP_PROCESS
 
 

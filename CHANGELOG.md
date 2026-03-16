@@ -1,5 +1,129 @@
 # Changelog
 
+## [0.20.0] - 2026-03-16
+### Neu
+- **Chrome Browser Architektur: Headed-Modus mit CDP** 🖥️
+  - Chrome lauft jetzt im **headed-Modus** (nicht headless!) mit GPU/WebGL-Support
+  - Neues Modul `lib/chrome_manager.py` – Chrome-Prozess-Manager:
+    - Start/Stop/Restart des echten Chrome-Browsers
+    - Persistentes Browser-Profil in `~/.config/chrome-bot-profile/` (ueberlebt Reboots)
+    - CDP Health-Checks (Chrome DevTools Protocol auf Port 9222)
+    - Auto-Recovery: Erkennt Crashes und startet Chrome automatisch neu
+    - `ensure_running()` – stellt sicher, dass Chrome lauft
+    - CLI: `python -m lib.chrome_manager [start|stop|restart|status|health]`
+  - **MCP Playwright verbindet sich jetzt per `--cdp-endpoint`** zum laufenden Chrome
+    - Kein eigener Browser-Start durch MCP mehr
+    - Login-Sessions (Google, etc.) bleiben dauerhaft erhalten
+    - Kein manueller Chrome-Neustart mehr noetig
+  - `start.sh` komplett ueberarbeitet: 3-Schritte-Start (Chrome → MCP → Bot)
+  - `lib/browser.py` aktualisiert: `--headless` entfernt, CDP-Endpoint-Anbindung
+  - Neuer Scheduled Task `chrome_health` (alle 30 Min) – prueft Chrome und startet bei Bedarf neu
+  - Altes Profil `/home/aroc/.cache/ms-playwright/mcp-chrome-c1ca833` wird nicht mehr verwendet
+
+## [0.19.6] - 2026-03-15
+### Hinzugefügt
+- **Reddit-Posting für News Radar** 🤖
+  - Neues Modul `lib/reddit_poster.py` – postet Artikel als Sammelpost auf Reddit
+  - Batch-Modus: JSON-Array von Artikeln → formatierter Reddit-Post (Markdown)
+  - Zweisprachiger Post (DE/EN) mit Copyright-Disclaimer (§ 51 UrhG)
+  - Quellenangabe und Zitat-Formatierung für jeden Artikel
+  - Unterstützung für mehrere Subreddits (Standard: r/FakeDefenseAI)
+  - Rate-Limiting und Duplikat-Erkennung integriert
+  - Newsradar Agent-Prompt um Reddit-Schritt erweitert (Schritt 6)
+  - PRAW (Python Reddit API Wrapper) als Dependency hinzugefügt
+  - Reddit-Credentials als Platzhalter in .env vorbereitet
+  - ⚠️ Noch nicht aktiv – wartet auf Reddit API App-Erstellung durch User
+
+## [0.19.5] - 2026-03-15
+### Verbessert
+- **Alle Radar-Agenten zweisprachig (DE/EN)** 🌍
+  - Twitter/X-Tweets: CTA jetzt "Protect yourself / Schützt euch – Fake Defense AI"
+  - Twitter/X-Hashtags: International (#FakeShop #OnlineScam #FakeDefenseAI)
+  - Instagram-Captions: Zweisprachig EN/DE mit Quellenangabe (Video Radar)
+  - Agent-Prompts: Sprachregel "zweisprachig, bei Platzmangel Englisch bevorzugen"
+  - Telegram bleibt Deutsch (nur für André)
+
+## [0.19.4] - 2026-03-15
+### Verbessert
+- **WordPress-Seiten zweisprachig (DE/EN)** 🌍
+  - News Radar: Header, Intro, CTA, Footer und Copyright-Disclaimer jetzt deutsch und englisch
+  - Video Radar: Header, Intro, CTA, Footer und Copyright-Disclaimer jetzt deutsch und englisch
+  - Artikel-Tags sprachabhängig: "WARNUNG"/"WARNING", "VERBRAUCHERSCHUTZ"/"CONSUMER PROTECTION", "SCAM ALERT"
+  - "Artikel lesen →" / "Read article →" je nach Artikelsprache
+  - "Auf YouTube ansehen" / "Watch on YouTube" je nach Videosprache
+  - CTA-Button: "FREE DOWNLOAD / KOSTENLOS"
+  - Copyright-Footer in beiden Sprachen mit korrekten HTML-Entities (keine Emojis)
+
+## [0.19.3] - 2026-03-15
+### Behoben
+- **Emoji-Encoding auf WordPress gefixt** 🔧
+  - Alle Emojis aus dem generierten WordPress-HTML entfernt (📰, 🔍, 📅, 🛡, 📱, ⚖️, 🎬, 📷 etc.)
+  - WordPress konnte Emojis nicht korrekt rendern (Mojibake wie ðŸ"°)
+  - Ersetzt durch reine Text-/HTML-Alternativen (z.B. "Bild:", HTML-Entities)
+  - Betrifft: `news_agent.py` und `video_agent.py` (nur HTML-Output, Telegram behält Emojis)
+  - Post-Titel jetzt ohne Emojis
+
+## [0.19.2] - 2026-03-15
+### Verbessert
+- **Copyright-Schutz für alle Radar-Agenten** ⚖️
+  - WordPress News Radar: Quellenangabe (📷 Quelle) auf jedem OG-Image-Vorschaubild
+  - WordPress News Radar: Copyright-Disclaimer im Footer (§ 51 UrhG Zitatrecht)
+  - WordPress Video Radar: Copyright-Disclaimer im Footer (YouTube-Embed-API ToS)
+  - WordPress Video Radar: © Channel-Name bei jedem Video
+  - Agent System-Prompts: Neue Copyright-Regeln für newsradar und videoradar
+    - Keine Volltexte kopieren, nur Zusammenfassungen
+    - Immer Quelle/Kanal nennen (WordPress, Twitter, Instagram)
+    - YouTube-Videos nur einbetten, nicht re-uploaden
+    - Bei Takedown-Requests sofort entfernen
+
+## [0.19.1] - 2026-03-15
+### Verbessert
+- **Twitter/X Tweets mit Bildern** 📸
+  - Tweets werden jetzt immer mit Bild gepostet (statt nur Text mit Link-Card)
+  - News-Tweets: OG-Image (Open Graph) wird automatisch vom Originalartikel heruntergeladen
+  - Video-Tweets: YouTube-Thumbnail wird als Bild angehängt
+  - Fallback: Fake Defense AI Logo wird verwendet wenn kein anderes Bild verfügbar
+  - Neuer Media-Upload über Tweepy v1.1 API (`get_api_v1()`, `upload_media()`)
+  - Neue Hilfsfunktionen: `download_article_image()`, `get_youtube_thumbnail()`, `get_fallback_logo()`
+  - CLI: Neues `--image PFAD` Flag für Einzeltweets mit Bild
+  - Batch-Modus: Unterstützt neue Felder `image_path`, `video_id`, `thumbnail_local` im JSON
+
+- **WordPress-Blogposts mit Artikelbildern** 🖼
+  - News Radar: OG-Images der Originalartikel werden automatisch in die WordPress-Blogposts eingebunden
+  - Bilder erscheinen oben in jeder Artikel-Card (200px Höhe, object-fit: cover)
+  - `onerror` Fallback: Bild-Container wird ausgeblendet wenn Bild nicht laden kann
+  - Neue Funktion `fetch_og_image_url()` extrahiert og:image/twitter:image Meta-Tags
+  - OG-Image-URL wird auch in der JSON-Ausgabe mitgegeben (Feld `og_image`)
+
+## [0.19.0] - 2026-03-15
+### Neu
+- **Video Radar Agent** 🎬
+  - Neuer Agent `videoradar` sucht täglich nach YouTube-Videos über Fake-Shops, Online-Betrug und Verbraucherschutz
+  - Python-Script `lib/video_agent.py` mit 3 Suchquellen: YouTube Direct Search (Hauptquelle), Google News RSS, YouTube RSS
+  - YouTube Direct Search scraped Suchergebnisse direkt von youtube.com (kein API-Key nötig)
+  - Findet Videos aus DE + EN Suchbegriffen (9 Queries, ~80+ Videos pro Lauf)
+  - Generiert WordPress-Blogposts mit eingebetteten YouTube-iframes im Fake Defense AI Design
+  - Lädt automatisch Video-Thumbnails herunter für Instagram-Posts
+  - Automatische Duplikat-Erkennung über Hash-basiertes State-Management (`data/video_seen.json`)
+  - Scheduled Task läuft täglich um 22:00 Uhr (`0 22 * * *`)
+  - Workflow: Videos suchen → WordPress-Post → Twitter/X Tweets → Instagram Posts → Telegram mit allen Links
+  - CLI-Optionen: `--dry-run`, `--force`, `--lookback N` (Tage)
+  - Maximal 10 Videos pro Blogpost
+
+## [0.18.1] - 2026-03-15
+### Behoben
+- **Encoding-Fix für News Radar** 🔧
+  - Umlaute (ä, ö, ü, ß) wurden als Mojibake (Ã¤, Ã¶, etc.) angezeigt
+  - Ursache: `feedparser.parse(resp.content)` statt `resp.text` → falsche Encoding-Erkennung
+  - Fix: `resp.encoding = resp.apparent_encoding` + `feedparser.parse(resp.text)`
+  - Neue `fix_mojibake()` Funktion als Sicherheitsnetz (Latin-1→UTF-8 Reparatur)
+  - Bestehender Artikel auf WordPress manuell repariert (29 Stellen korrigiert)
+
+### Verbessert
+- **News Radar: Telegram-Nachricht mit Links** 🔗
+  - Agent sendet nach dem Publizieren alle Links per Telegram (WordPress-URL + Tweet-URLs)
+  - Formatierte Zusammenfassung mit Artikelliste
+
 ## [0.18.0] - 2026-03-14
 ### Neu
 - **Fake-Shop News Radar Agent** 📰
