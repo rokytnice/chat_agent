@@ -162,6 +162,7 @@ class TaskScheduler:
         prompt = task_config.get("prompt", "")
         timeout = task_config.get("timeout_seconds", 300)
         description = task_config.get("description", task_id)
+        silent = task_config.get("silent", False)
         agent_name = agent.get("name", agent.get("id", "?"))
         agent_emoji = agent.get("emoji", "🤖")
 
@@ -233,11 +234,13 @@ class TaskScheduler:
                     f"Dauer: {elapsed:.1f}s\n"
                     f"{'─' * 30}\n\n"
                 )
-            await self.send_message(header + output)
+            if not silent:
+                await self.send_message(header + output)
 
             log.info(
-                "✅ Scheduler: Task '%s' erfolgreich in %.1fs (%d Zeichen)",
+                "✅ Scheduler: Task '%s' erfolgreich in %.1fs (%d Zeichen)%s",
                 task_id, elapsed, len(output),
+                " (silent)" if silent else "",
             )
 
         except asyncio.TimeoutError:

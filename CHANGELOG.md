@@ -1,5 +1,56 @@
 # Changelog
 
+## [0.20.4] - 2026-03-20
+### Hinzugefuegt
+- **USt-VA Pruefagent (Scheduled Task)** 📊
+  - Automatische monatliche Pruefung der Umsatzsteuer-Voranmeldung am 10. jedes Monats um 9 Uhr
+  - Loggt sich in Lexware ein und prueft ob die USt-VA des Vormonats uebermittelt wurde
+  - Meldet Status (gemeldet/nicht gemeldet), Zahllast und ggf. Warnung per Telegram
+  - Prueft nur, uebermittelt NICHT selbst
+  - Cron: `0 9 10 * *` (Task-ID: `ustva_check`)
+
+## [0.20.3] - 2026-03-19
+### Hinzugefuegt
+- **Neuer Agent: Steuer & Buchhaltung 2025** 📊
+  - Kummert sich um Einkommensteuererklaerung 2025 und geschaeftliche Buchhaltung
+  - Datenquellen: Google Drive privat (6_Steuer/2025/, 5_Privat/2025/), Google Drive Business (rochlitz.consulting/business/2025/), Elster, Lexware Office
+  - Referenz-Vorlagen aus Steuererklaerung 2024 (EUeR, ELSTER-Abgabe, Belegnachweis)
+  - Aufgabenbereiche: ESt-Erklaerung, UStVA, EUeR, Belegmanagement, Lexware-Abgleich
+  - Monatlicher Steuer-Status-Check (Cron: 1. des Monats um 9 Uhr)
+  - Ergebnisse werden auf Google Drive abgelegt (nicht /tmp/)
+
+## [0.20.2] - 2026-03-19
+### Verbessert
+- **Instagram Login-Credentials in Agent-Prompts hinterlegt** 🔑
+  - News Radar + Video Radar: Instagram-Login mit andre.rochlitz@gmail.com (Standard-Passwort)
+  - Automatischer Login-Flow falls nicht eingeloggt
+  - Video Radar: File-Root-Workaround (tmp_upload.jpg) analog zu News Radar ergaenzt
+
+## [0.20.1] - 2026-03-17
+### Verbessert
+- **TaskPrep-Agent: Automatischer Postausgang-Abgleich** 📧
+  - Agent prueft bei jedem Durchlauf (Morning/Precheck/Evening) den Gmail-Postausgang
+  - Erkennt automatisch erledigte Aufgaben (z.B. beantwortete Polizei-Anzeigen, Behoerden-Mails)
+  - Loescht erledigte Erinnerungen selbststaendig aus `notified_tasks`
+  - Erinnert bei offenen Aufgaben (>3 Tage) aktiv an ausstehende Antworten
+  - Suchstrategie: Ableitung von Suchbegriffen aus Aufgaben-Kontext (Aktenzeichen, Absender, Betreff)
+
+- **News Radar: Instagram-Posting hinzugefuegt** 📸
+  - News Radar postet jetzt auch auf Instagram (analog zu Video Radar)
+  - Ein Post pro Artikel mit OG-Image, zweisprachiger Caption und Hashtags
+  - Maximal 5 Posts pro Durchlauf (Anti-Spam)
+  - 30 Sekunden Pause zwischen Posts
+  - Fix: Bilder werden vor Upload ins Projektverzeichnis kopiert (Playwright MCP File-Root-Restriction)
+  - Erster Instagram-Test-Post erfolgreich veroeffentlicht (17.03.2026)
+
+### Gefixt
+- **Google Drive Mount-Skripte** (`mount_andre_rochlitz.sh`, `mount_rochlitz.sh`)
+  - `--allow-other` entfernt (nicht in `/etc/fuse.conf` erlaubt)
+  - `--daemon` durch `nohup &` ersetzt (Timeout-Problem behoben)
+  - Stale-Mount-Erkennung und automatische Bereinigung hinzugefuegt
+  - Verzeichnis-Bereinigung vor Mount (verhindert "not empty" Fehler)
+  - Mount-Verifikation mit Erfolgs-/Fehler-Logging
+
 ## [0.20.0] - 2026-03-16
 ### Neu
 - **Chrome Browser Architektur: Headed-Modus mit CDP** 🖥️
