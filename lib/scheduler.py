@@ -71,6 +71,12 @@ class TaskScheduler:
         STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(self._state, f, indent=2, default=str)
+        # Update dashboard (non-blocking, best-effort)
+        try:
+            from lib.dashboard_publisher import publish_dashboard
+            publish_dashboard()
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------ #
     #  Cron-Parser                                                         #
