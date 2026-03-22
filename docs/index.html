@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assistina Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --red: #f85149; --orange: #d29922; --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 1rem; }
+
+  header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.5rem; }
+  header h1 { font-size: 1.5rem; }
+  header h1 span { color: var(--accent); }
+  .meta { color: var(--dim); font-size: 0.85rem; }
+  .meta .live { color: var(--green); }
+
+  .stats-bar { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; flex: 1; min-width: 120px; text-align: center; }
+  .stat .val { font-size: 1.5rem; font-weight: 700; }
+  .stat .lbl { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; }
+
+  h2 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; transition: border-color 0.2s; }
+  .card:hover { border-color: var(--accent); }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+  .card-title { font-weight: 600; font-size: 1rem; }
+  .card-title .emoji { margin-right: 0.5rem; }
+
+  .badge { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+  .badge-success { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-error { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge-timeout { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .badge-running { background: rgba(88,166,255,0.15); color: var(--accent); animation: pulse 2s infinite; }
+  .badge-disabled { background: rgba(139,148,158,0.15); color: var(--dim); }
+
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .task-list { list-style: none; }
+  .task { padding: 0.5rem 0; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.25rem; }
+  .task:first-child { border-top: none; }
+  .task-name { font-weight: 500; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
+  .task-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--dim); flex-wrap: wrap; }
+  .task-error { font-size: 0.75rem; color: var(--red); background: rgba(248,81,73,0.1); padding: 4px 8px; border-radius: 4px; margin-top: 2px; word-break: break-all; }
+
+  /* Retouren */
+  .retouren-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .retouren-table th { text-align: left; padding: 0.5rem; color: var(--dim); font-weight: 500; border-bottom: 1px solid var(--border); }
+  .retouren-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); }
+  .retouren-table tr:hover { background: rgba(88,166,255,0.05); }
+  .urgent { color: var(--red); font-weight: 600; }
+  .ok { color: var(--green); }
+
+  /* Activity log */
+  .log { max-height: 300px; overflow-y: auto; }
+  .log-entry { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; display: flex; gap: 0.75rem; }
+  .log-entry:hover { background: rgba(88,166,255,0.05); }
+  .log-time { color: var(--dim); white-space: nowrap; min-width: 70px; }
+  .log-agent { color: var(--accent); min-width: 80px; }
+  .log-msg { flex: 1; }
+  .log-status-success { color: var(--green); }
+  .log-status-error { color: var(--red); }
+  .log-status-timeout { color: var(--orange); }
+
+  .loading { text-align: center; padding: 3rem; color: var(--dim); }
+  .error-banner { background: rgba(248,81,73,0.15); border: 1px solid var(--red); color: var(--red); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
+
+  footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); text-align: center; color: var(--dim); font-size: 0.75rem; }
+
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+    .stats-bar { flex-direction: column; }
+    .retouren-table { font-size: 0.75rem; }
+    .retouren-table th, .retouren-table td { padding: 0.3rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>Assistina</span> Dashboard</h1>
+  <div class="meta">
+    <span class="live" id="live-dot">&#9679;</span>
+    Aktualisiert: <span id="last-update">-</span> &middot;
+    Refresh in <span id="countdown">30</span>s
+  </div>
+</header>
+
+<div id="error-banner" class="error-banner"></div>
+
+<div class="stats-bar" id="stats-bar">
+  <div class="stat"><div class="val" id="s-agents">-</div><div class="lbl">Agenten</div></div>
+  <div class="stat"><div class="val" id="s-tasks">-</div><div class="lbl">Tasks aktiv</div></div>
+  <div class="stat"><div class="val" id="s-runs">-</div><div class="lbl">Runs gesamt</div></div>
+  <div class="stat"><div class="val" id="s-errors">-</div><div class="lbl">Errors</div></div>
+  <div class="stat"><div class="val" id="s-retouren">-</div><div class="lbl">Retouren offen</div></div>
+</div>
+
+<h2>Agenten</h2>
+<div class="grid" id="agents-grid">
+  <div class="loading">Lade Daten...</div>
+</div>
+
+<h2>Retouren-Tracking</h2>
+<div class="card" id="retouren-card">
+  <div class="loading">Lade Daten...</div>
+</div>
+
+<h2>Aktivitaetslog</h2>
+<div class="card">
+  <div class="log" id="activity-log">
+    <div class="loading">Lade Daten...</div>
+  </div>
+</div>
+
+<footer>
+  Assistina Agent Dashboard &middot;
+  <a href="https://github.com/rokytnice/chat_agent" style="color:var(--accent);">GitHub</a>
+</footer>
+
+<script>
+const REFRESH_INTERVAL = 30;
+let countdown = REFRESH_INTERVAL;
+
+function relTime(ts) {
+  if (!ts) return '-';
+  const diff = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (diff < 60) return Math.round(diff) + 's';
+  if (diff < 3600) return Math.round(diff / 60) + 'min';
+  if (diff < 86400) return Math.round(diff / 3600) + 'h';
+  return Math.round(diff / 86400) + 'd';
+}
+
+function badgeClass(status) {
+  if (!status) return 'badge-disabled';
+  const s = status.toLowerCase();
+  if (s === 'success') return 'badge-success';
+  if (s === 'error') return 'badge-error';
+  if (s === 'timeout') return 'badge-timeout';
+  if (s === 'running') return 'badge-running';
+  return 'badge-disabled';
+}
+
+function statusLabel(status) {
+  if (!status) return 'inaktiv';
+  const map = { success: 'OK', error: 'Fehler', timeout: 'Timeout', running: 'Laeuft' };
+  return map[status.toLowerCase()] || status;
+}
+
+function renderAgents(agents) {
+  const grid = document.getElementById('agents-grid');
+  if (!agents || agents.length === 0) { grid.innerHTML = '<div class="loading">Keine Agenten</div>'; return; }
+
+  grid.innerHTML = agents.map(a => {
+    const tasks = (a.tasks || []).map(t => {
+      const errHtml = t.last_error ? `<div class="task-error">${t.last_error.substring(0, 120)}</div>` : '';
+      return `<li class="task">
+        <div class="task-name">
+          <span>${t.description || t.id}</span>
+          <span class="badge ${badgeClass(t.last_status)}">${statusLabel(t.last_status)}</span>
+        </div>
+        <div class="task-meta">
+          <span>Letzter Lauf: ${relTime(t.last_run)}</span>
+          <span>Dauer: ${t.last_duration_seconds ? t.last_duration_seconds.toFixed(1) + 's' : '-'}</span>
+          <span>Runs: ${t.run_count || 0}</span>
+          <span title="${t.cron || ''}">&#128337; ${t.cron || '-'}</span>
+        </div>
+        ${errHtml}
+      </li>`;
+    }).join('');
+
+    const overallStatus = a.status || (a.tasks || []).reduce((s, t) => {
+      if (t.last_status === 'error') return 'error';
+      if (t.last_status === 'timeout' && s !== 'error') return 'timeout';
+      if (t.last_status === 'success' && s !== 'error' && s !== 'timeout') return 'success';
+      return s;
+    }, null);
+
+    return `<div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="emoji">${a.emoji || ''}</span>${a.name}</div>
+        <span class="badge ${badgeClass(overallStatus)}">${statusLabel(overallStatus)}</span>
+      </div>
+      <ul class="task-list">${tasks || '<li class="task"><div class="task-meta">Keine Tasks</div></li>'}</ul>
+    </div>`;
+  }).join('');
+}
+
+function renderRetouren(retouren) {
+  const card = document.getElementById('retouren-card');
+  if (!retouren || !retouren.items || retouren.items.length === 0) {
+    card.innerHTML = '<div style="padding:1rem;color:var(--dim);">Keine offenen Retouren</div>';
+    return;
+  }
+
+  const rows = retouren.items.map(r => {
+    const deadline = new Date(r.refund_deadline);
+    const daysLeft = Math.ceil((deadline - Date.now()) / 86400000);
+    const urgClass = daysLeft <= 3 ? 'urgent' : (daysLeft <= 7 ? '' : 'ok');
+    const statusIcon = r.status === 'received' ? '&#9989;' : (r.status === 'overdue' ? '&#9888;&#65039;' : '&#9203;');
+    const amount = r.amount ? r.amount.toFixed(2) + ' EUR' : '?';
+    return `<tr>
+      <td>${statusIcon}</td>
+      <td>${r.shop}</td>
+      <td>${r.product ? r.product.substring(0, 40) : '-'}</td>
+      <td>${amount}</td>
+      <td>${r.payment_method || '-'}</td>
+      <td>${r.return_date || '-'}</td>
+      <td class="${urgClass}">${r.refund_deadline} (${daysLeft}d)</td>
+      <td>${r.status}</td>
+    </tr>`;
+  }).join('');
+
+  card.innerHTML = `<div style="overflow-x:auto;">
+    <table class="retouren-table">
+      <thead><tr>
+        <th></th><th>Shop</th><th>Produkt</th><th>Betrag</th><th>Zahlung</th><th>Retoure</th><th>Frist</th><th>Status</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+  <div style="margin-top:0.75rem;font-size:0.8rem;color:var(--dim);">
+    Gesamt: ${retouren.pending_count || 0} offen &middot; ${(retouren.total_amount || 0).toFixed(2)} EUR ausstehend &middot; Letzter Scan: ${retouren.last_scan || '-'}
+  </div>`;
+}
+
+function renderLog(log) {
+  const el = document.getElementById('activity-log');
+  if (!log || log.length === 0) { el.innerHTML = '<div class="loading">Keine Eintraege</div>'; return; }
+
+  el.innerHTML = log.slice(0, 50).map(e => {
+    const statusCls = e.status === 'success' ? 'log-status-success' : (e.status === 'error' ? 'log-status-error' : 'log-status-timeout');
+    return `<div class="log-entry">
+      <span class="log-time">${relTime(e.timestamp)}</span>
+      <span class="log-agent">${e.agent || ''}</span>
+      <span class="log-msg ${statusCls}">${e.task || ''}: ${e.message || e.status || ''}</span>
+    </div>`;
+  }).join('');
+}
+
+function render(data) {
+  if (!data) return;
+
+  document.getElementById('last-update').textContent = data.last_updated ? new Date(data.last_updated).toLocaleString('de-DE') : '-';
+
+  const agents = data.agents || [];
+  const activeAgents = agents.filter(a => (a.tasks || []).some(t => t.enabled !== false));
+  const totalTasks = agents.reduce((s, a) => s + (a.tasks || []).filter(t => t.enabled !== false).length, 0);
+  const totalRuns = agents.reduce((s, a) => s + (a.tasks || []).reduce((rs, t) => rs + (t.run_count || 0), 0), 0);
+  const errorTasks = agents.reduce((s, a) => s + (a.tasks || []).filter(t => t.last_status === 'error').length, 0);
+
+  document.getElementById('s-agents').textContent = activeAgents.length;
+  document.getElementById('s-tasks').textContent = totalTasks;
+  document.getElementById('s-runs').textContent = totalRuns;
+  document.getElementById('s-errors').textContent = errorTasks;
+  document.getElementById('s-errors').style.color = errorTasks > 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('s-retouren').textContent = data.retouren?.pending_count || 0;
+
+  renderAgents(agents);
+  renderRetouren(data.retouren);
+  renderLog(data.activity_log);
+
+  document.getElementById('error-banner').style.display = 'none';
+}
+
+async function fetchData() {
+  try {
+    const res = await fetch('dashboard_status.json?t=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    const banner = document.getElementById('error-banner');
+    banner.textContent = 'Fehler beim Laden: ' + e.message;
+    banner.style.display = 'block';
+  }
+}
+
+fetchData();
+setInterval(() => {
+  countdown--;
+  document.getElementById('countdown').textContent = countdown;
+  if (countdown <= 0) {
+    countdown = REFRESH_INTERVAL;
+    fetchData();
+  }
+}, 1000);
+</script>
+</body>
+</html>
