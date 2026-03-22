@@ -1,5 +1,48 @@
 # Changelog
 
+## [0.21.0] - 2026-03-22
+### Hinzugefuegt
+- **Assistina Dashboard (GitHub Pages)** 📊
+  - Live-Dashboard unter https://rokytnice.github.io/chat_agent/
+  - Zeigt alle Agenten mit Status, Tasks, Laufzeiten, Fehler
+  - Retouren-Tracking mit Fristen und Betraegen
+  - Aktivitaetslog der letzten 50 Task-Ausfuehrungen
+  - Auto-Refresh alle 30 Sekunden
+  - Dark Theme, responsive fuer Mobile
+  - Dashboard Publisher (`lib/dashboard_publisher.py`) generiert Status-JSON
+  - Automatische Aktualisierung bei jedem Scheduler State-Change
+  - Nur Push bei tatsaechlichen Aenderungen (Hash-Vergleich)
+- **Retouren-Tracking System** 📦
+  - Automatischer taeglicher Gmail-Scan nach Retoure-E-Mails (9:17 Uhr)
+  - Tracking-Datei: `~/gdrive/5_Privat/retouren_tracking.json`
+  - Erkennt: Amazon, Gymshark, Kaufland und andere Shops
+  - Telegram-Alert bei ueberfaelligen Rueckzahlungen (>14 Tage)
+  - Aktuell 3 offene Retouren getrackt
+
+## [0.20.6] - 2026-03-21
+### Hinzugefuegt
+- **Fake Defense AI: Rueckgabebedingungen-Check (Phase 8)** 🛒
+  - Neue Pruefphase im Fakechecker-Agent: Rueckgabebedingungen & Versand-Standort-Analyse
+  - Prueft Ruecksendeadresse vs. Impressum vs. WHOIS (Dreiecks-Check)
+  - Erkennt Fake-Shops anhand: Ruecksendeadresse in Asien, fehlendes EU-Widerrufsrecht, ueberhöhte Retourenkosten
+  - Lieferzeit-Plausibilitaet (>14 Tage = Dropshipping-Verdacht)
+  - Neue Output-Tabelle im Pruefbericht
+
+### Entfernt
+- **Reddit-Posting aus News Radar Agent entfernt** 🗑️
+  - Schritt 6 (Reddit-Post) komplett entfernt
+  - Alle Reddit-Referenzen aus Prompt, Copyright-Regeln, Sprach-Abschnitt und Telegram-Template entfernt
+  - Workflow: WordPress → Twitter/X → Instagram → Telegram (ohne Reddit)
+
+## [0.20.5] - 2026-03-21
+### Hinzugefuegt
+- **E-Scooter Versicherungs-Erinnerung (Scheduled Task)** 🛴
+  - Jaehrliche Erinnerung am 10. Februar um 9 Uhr
+  - Erinnert an Ablauf von Lisas E-Scooter-Versicherungskennzeichen (28.02.)
+  - Prueft ob Verlaengerung erfolgt ist und meldet Status per Telegram
+  - Versicherer: AdmiralDirekt (CHECK24), Police ESC-55749419
+  - Cron: `0 9 10 2 *` (Task-ID: `escooter_versicherung`)
+
 ## [0.20.4] - 2026-03-20
 ### Hinzugefuegt
 - **USt-VA Pruefagent (Scheduled Task)** 📊
