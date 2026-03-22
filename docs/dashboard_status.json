@@ -1,0 +1,356 @@
+{
+  "last_updated": "2026-03-22T12:48:07.717171",
+  "agents": [
+    {
+      "id": "assistant",
+      "name": "Persönlicher Assistent",
+      "emoji": "🤖",
+      "status": "success",
+      "tasks": [
+        {
+          "id": "chrome_health",
+          "description": "Chrome Browser Health-Check alle 30 Min (Auto-Recovery)",
+          "cron": "*/30 * * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T12:30:40.600255",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 0.1,
+          "run_count": 246
+        },
+        {
+          "id": "ustva_check",
+          "description": "USt-VA Prüfung am 10. jedes Monats um 9 Uhr",
+          "cron": "0 9 10 * *",
+          "enabled": true,
+          "last_run": null,
+          "last_status": null,
+          "last_error": null,
+          "last_duration_seconds": null,
+          "run_count": 0
+        },
+        {
+          "id": "escooter_versicherung",
+          "description": "E-Scooter Versicherungserinnerung am 10. Februar jedes Jahr",
+          "cron": "0 9 10 2 *",
+          "enabled": true,
+          "last_run": null,
+          "last_status": null,
+          "last_error": null,
+          "last_duration_seconds": null,
+          "run_count": 0
+        }
+      ]
+    },
+    {
+      "id": "mailcheck",
+      "name": "E-Mail Wächter",
+      "emoji": "📧",
+      "status": "success",
+      "tasks": [
+        {
+          "id": "email_check",
+          "description": "E-Mail-Check alle 5 Stunden",
+          "cron": "23 */5 * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T10:24:36.354367",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 65.1,
+          "run_count": 117
+        }
+      ]
+    },
+    {
+      "id": "datasync",
+      "name": "Daten-Synchronizer",
+      "emoji": "🔄",
+      "status": "error",
+      "tasks": [
+        {
+          "id": "sync_gmail",
+          "description": "Gmail-Sync alle 4 Stunden",
+          "cron": "30 */4 * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T12:33:51.035807",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 190.4,
+          "run_count": 71
+        },
+        {
+          "id": "sync_calendar",
+          "description": "Kalender-Sync täglich 6 Uhr",
+          "cron": "0 6 * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T06:05:27.047569",
+          "last_status": "timeout",
+          "last_error": "Timeout nach 300s",
+          "last_duration_seconds": 300.6,
+          "run_count": 3
+        },
+        {
+          "id": "sync_contacts",
+          "description": "Kontakte-Sync wöchentlich Sonntag 3 Uhr",
+          "cron": "0 3 * * 0",
+          "enabled": true,
+          "last_run": "2026-03-22T03:06:18.077877",
+          "last_status": "error",
+          "last_error": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution",
+          "last_duration_seconds": 353.5,
+          "run_count": 1
+        },
+        {
+          "id": "sync_drive",
+          "description": "Drive-Index täglich 4 Uhr",
+          "cron": "0 4 * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T04:02:18.386532",
+          "last_status": "timeout",
+          "last_error": "Timeout nach 120s",
+          "last_duration_seconds": 120.0,
+          "run_count": 0
+        },
+        {
+          "id": "sync_conversations",
+          "description": "Konversations-Sync alle 6 Stunden in RAG",
+          "cron": "0 */6 * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T12:00:40.227020",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 3.0,
+          "run_count": 3
+        }
+      ]
+    },
+    {
+      "id": "taskprep",
+      "name": "Aufgaben-Vorbereiter",
+      "emoji": "📋",
+      "status": "error",
+      "tasks": [
+        {
+          "id": "taskprep_morning",
+          "description": "Morgen-Briefing täglich 7 Uhr",
+          "cron": "0 7 * * *",
+          "enabled": true,
+          "last_run": "2026-03-22T07:06:33.268165",
+          "last_status": "error",
+          "last_error": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution",
+          "last_duration_seconds": 365.9,
+          "run_count": 11
+        },
+        {
+          "id": "taskprep_precheck",
+          "description": "Vorbereitungs-Check alle 3h (9-20 Uhr)",
+          "cron": "0 */3 9-20 * *",
+          "enabled": true,
+          "last_run": "2026-03-20T18:00:43.906395",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 11.8,
+          "run_count": 55
+        },
+        {
+          "id": "taskprep_evening",
+          "description": "Abend-Review täglich 20 Uhr",
+          "cron": "0 20 * * *",
+          "enabled": true,
+          "last_run": "2026-03-21T20:05:16.728509",
+          "last_status": "timeout",
+          "last_error": "Timeout nach 300s",
+          "last_duration_seconds": 300.6,
+          "run_count": 6
+        }
+      ]
+    },
+    {
+      "id": "newsradar",
+      "name": "Fake-Shop News Radar",
+      "emoji": "📰",
+      "status": "error",
+      "tasks": [
+        {
+          "id": "daily_news",
+          "description": "Täglicher Fake-Shop News Scan um 21 Uhr",
+          "cron": "0 21 * * *",
+          "enabled": true,
+          "last_run": "2026-03-21T21:03:28.216698",
+          "last_status": "error",
+          "last_error": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution",
+          "last_duration_seconds": 184.8,
+          "run_count": 4
+        }
+      ]
+    },
+    {
+      "id": "videoradar",
+      "name": "Video Radar",
+      "emoji": "🎬",
+      "status": "error",
+      "tasks": [
+        {
+          "id": "daily_videos",
+          "description": "Täglicher Video Radar Scan um 22 Uhr",
+          "cron": "0 22 * * *",
+          "enabled": true,
+          "last_run": "2026-03-21T22:03:23.978162",
+          "last_status": "error",
+          "last_error": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution",
+          "last_duration_seconds": 175.4,
+          "run_count": 2
+        }
+      ]
+    },
+    {
+      "id": "steuer",
+      "name": "Steuer & Buchhaltung 2025",
+      "emoji": "📊",
+      "status": null,
+      "tasks": [
+        {
+          "id": "steuer_reminder",
+          "description": "Monatliche Steuer-Statusprüfung am 1. des Monats",
+          "cron": "0 9 1 * *",
+          "enabled": true,
+          "last_run": null,
+          "last_status": null,
+          "last_error": null,
+          "last_duration_seconds": null,
+          "run_count": 0
+        }
+      ]
+    }
+  ],
+  "retouren": {
+    "pending_count": 3,
+    "total_amount": 273.46000000000004,
+    "last_scan": "2026-03-22 11:18",
+    "items": [
+      {
+        "shop": "Amazon",
+        "product": "Nourished Bodynskin 7 Farben... (Bestellnr. 302-5813272-0834742)",
+        "amount": 246.49,
+        "payment_method": "Kreditkarte (DKB, Endziffern 811)",
+        "return_date": "2026-03-18",
+        "refund_deadline": "2026-04-01",
+        "status": "pending",
+        "refund_date": null
+      },
+      {
+        "shop": "Gymshark DE (Happy Returns)",
+        "product": "Gymshark Bestellung (Prepaid-Etikett HRA7FE2X)",
+        "amount": null,
+        "payment_method": "unbekannt - prüfen",
+        "return_date": "2026-03-16",
+        "refund_deadline": "2026-03-30",
+        "status": "pending",
+        "refund_date": null
+      },
+      {
+        "shop": "Kaufland Marktplatz (OlsenStore)",
+        "product": "3x Vaily Matratzenschoner 90x200cm",
+        "amount": 26.97,
+        "payment_method": "PayPal",
+        "return_date": "2026-03-21",
+        "refund_deadline": "2026-04-04",
+        "status": "pending",
+        "refund_date": null
+      }
+    ]
+  },
+  "activity_log": [
+    {
+      "timestamp": "2026-03-22T12:33:51.035807",
+      "agent": "sync_gmail",
+      "task": "sync_gmail",
+      "status": "success",
+      "message": "OK (190.4s)"
+    },
+    {
+      "timestamp": "2026-03-22T12:30:40.600255",
+      "agent": "chrome_health",
+      "task": "chrome_health",
+      "status": "success",
+      "message": "OK (0.1s)"
+    },
+    {
+      "timestamp": "2026-03-22T12:00:40.227020",
+      "agent": "sync_conversations",
+      "task": "sync_conversations",
+      "status": "success",
+      "message": "OK (3.0s)"
+    },
+    {
+      "timestamp": "2026-03-22T10:24:36.354367",
+      "agent": "email_check",
+      "task": "email_check",
+      "status": "success",
+      "message": "OK (65.1s)"
+    },
+    {
+      "timestamp": "2026-03-22T07:06:33.268165",
+      "agent": "taskprep_morning",
+      "task": "taskprep_morning",
+      "status": "error",
+      "message": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution"
+    },
+    {
+      "timestamp": "2026-03-22T06:05:27.047569",
+      "agent": "sync_calendar",
+      "task": "sync_calendar",
+      "status": "timeout",
+      "message": "Timeout nach 300s"
+    },
+    {
+      "timestamp": "2026-03-22T04:02:18.386532",
+      "agent": "sync_drive",
+      "task": "sync_drive",
+      "status": "timeout",
+      "message": "Timeout nach 120s"
+    },
+    {
+      "timestamp": "2026-03-22T03:06:18.077877",
+      "agent": "sync_contacts",
+      "task": "sync_contacts",
+      "status": "error",
+      "message": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution"
+    },
+    {
+      "timestamp": "2026-03-21T22:03:23.978162",
+      "agent": "daily_videos",
+      "task": "daily_videos",
+      "status": "error",
+      "message": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution"
+    },
+    {
+      "timestamp": "2026-03-21T21:03:28.216698",
+      "agent": "daily_news",
+      "task": "daily_news",
+      "status": "error",
+      "message": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution"
+    },
+    {
+      "timestamp": "2026-03-21T20:05:16.728509",
+      "agent": "taskprep_evening",
+      "task": "taskprep_evening",
+      "status": "timeout",
+      "message": "Timeout nach 300s"
+    },
+    {
+      "timestamp": "2026-03-20T18:00:43.906395",
+      "agent": "taskprep_precheck",
+      "task": "taskprep_precheck",
+      "status": "success",
+      "message": "OK (11.8s)"
+    },
+    {
+      "timestamp": "2026-02-28T10:31:04.431015",
+      "agent": "claude_cpu_monitor",
+      "task": "claude_cpu_monitor",
+      "status": "timeout",
+      "message": "Timeout nach 30s"
+    }
+  ]
+}
