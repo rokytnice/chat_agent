@@ -237,7 +237,7 @@ def post_tweet(text: str, image_path: str = None) -> dict:
     response = client.create_tweet(text=text, media_ids=media_ids)
 
     tweet_id = response.data["id"]
-    tweet_url = f"https://x.com/FakeDefenseAI/status/{tweet_id}"
+    tweet_url = f"https://x.com/fake_defense_ai/status/{tweet_id}"
 
     return {
         "success": True,
@@ -334,7 +334,7 @@ def post_article_tweets(articles: list[dict], blog_url: str = "") -> list[dict]:
             result = {
                 "success": True,
                 "tweet_id": tweet_id,
-                "tweet_url": f"https://x.com/FakeDefenseAI/status/{tweet_id}",
+                "tweet_url": f"https://x.com/fake_defense_ai/status/{tweet_id}",
                 "text": tweet_text,
                 "article_index": i,
                 "has_image": media_ids is not None,

@@ -152,8 +152,9 @@
         {
           "id": "sync_gmail",
           "enabled": true,
+          "silent": true,
           "cron": "30 */4 * * *",
-          "prompt": "Synchronisiere Gmail: Öffne mail.google.com, erfasse die neuesten 20 E-Mails (Absender, Betreff, Datum, Snippet-Zusammenfassung, Wichtigkeit). Speichere als JSON in data/sync_gmail.json und importiere dann in die Wissensbasis.",
+          "prompt": "Synchronisiere Gmail: Öffne mail.google.com, erfasse die neuesten 20 E-Mails (Absender, Betreff, Datum, Snippet-Zusammenfassung, Wichtigkeit). Speichere als JSON in data/sync_gmail.json und importiere dann in die Wissensbasis. WICHTIG: Sende KEINE Telegram-Nachricht mit dem Ergebnis.",
           "timeout_seconds": 300,
           "description": "Gmail-Sync alle 4 Stunden"
         },
