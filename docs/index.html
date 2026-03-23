@@ -69,6 +69,17 @@
   .log-status-error { color: var(--red); }
   .log-status-timeout { color: var(--orange); }
 
+  /* Content Links */
+  .content-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.75rem; }
+  .content-link { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 0.85rem 1rem; display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: var(--text); transition: border-color 0.2s, transform 0.15s; }
+  .content-link:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .content-link .cl-icon { font-size: 1.5rem; flex-shrink: 0; }
+  .content-link .cl-info { display: flex; flex-direction: column; }
+  .content-link .cl-name { font-weight: 600; font-size: 0.9rem; }
+  .content-link .cl-desc { font-size: 0.72rem; color: var(--dim); }
+  .content-link .cl-url { font-size: 0.7rem; color: var(--accent); word-break: break-all; }
+  .section-desc { font-size: 0.8rem; color: var(--dim); margin-bottom: 0.75rem; }
+
   .loading { text-align: center; padding: 3rem; color: var(--dim); }
   .error-banner { background: rgba(248,81,73,0.15); border: 1px solid var(--red); color: var(--red); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
 
@@ -101,6 +112,59 @@
   <div class="stat"><div class="val" id="s-runs">-</div><div class="lbl">Runs gesamt</div></div>
   <div class="stat"><div class="val" id="s-errors">-</div><div class="lbl">Errors</div></div>
   <div class="stat"><div class="val" id="s-retouren">-</div><div class="lbl">Retouren offen</div></div>
+</div>
+
+<h2>Content &amp; Kanaele</h2>
+<div class="section-desc">Alle Plattformen, auf denen Assistina-Agenten Content veroeffentlichen</div>
+<div class="content-links">
+  <a class="content-link" href="https://fakedefenseai.wordpress.com" target="_blank">
+    <span class="cl-icon">📰</span>
+    <div class="cl-info">
+      <span class="cl-name">Fake Defense AI Blog</span>
+      <span class="cl-desc">WordPress – News &amp; Video Blogbeitraege</span>
+      <span class="cl-url">fakedefenseai.wordpress.com</span>
+    </div>
+  </a>
+  <a class="content-link" href="https://x.com/FakeDefenseAI" target="_blank">
+    <span class="cl-icon">𝕏</span>
+    <div class="cl-info">
+      <span class="cl-name">Twitter / X</span>
+      <span class="cl-desc">Newsradar &amp; Videoradar Posts</span>
+      <span class="cl-url">x.com/FakeDefenseAI</span>
+    </div>
+  </a>
+  <a class="content-link" href="https://www.instagram.com/fake_defense_ai/" target="_blank">
+    <span class="cl-icon">📸</span>
+    <div class="cl-info">
+      <span class="cl-name">Instagram</span>
+      <span class="cl-desc">Newsradar &amp; Videoradar Posts</span>
+      <span class="cl-url">instagram.com/fake_defense_ai</span>
+    </div>
+  </a>
+  <a class="content-link" href="https://www.reddit.com/r/FakeDefenseAI/" target="_blank">
+    <span class="cl-icon">🤖</span>
+    <div class="cl-info">
+      <span class="cl-name">Reddit</span>
+      <span class="cl-desc">r/FakeDefenseAI Subreddit</span>
+      <span class="cl-url">reddit.com/r/FakeDefenseAI</span>
+    </div>
+  </a>
+  <a class="content-link" href="https://rokytnice.github.io/chat_agent/" target="_blank">
+    <span class="cl-icon">📊</span>
+    <div class="cl-info">
+      <span class="cl-name">Assistina Dashboard</span>
+      <span class="cl-desc">Dieses Dashboard (GitHub Pages)</span>
+      <span class="cl-url">rokytnice.github.io/chat_agent</span>
+    </div>
+  </a>
+  <a class="content-link" href="https://github.com/rokytnice/chat_agent" target="_blank">
+    <span class="cl-icon">💻</span>
+    <div class="cl-info">
+      <span class="cl-name">GitHub Repository</span>
+      <span class="cl-desc">Chat Agent Quellcode</span>
+      <span class="cl-url">github.com/rokytnice/chat_agent</span>
+    </div>
+  </a>
 </div>
 
 <h2>Agenten</h2>

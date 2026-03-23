@@ -163,7 +163,17 @@ class TaskScheduler:
         Unterstützt zwei Task-Typen:
           - "claude" (default): Führt Prompt via Claude aus
           - "bash": Führt Shell-Befehl direkt aus (kein Claude)
+
+        Bei transienten Fehlern (DNS, Netzwerk) wird automatisch 1x wiederholt.
         """
+        max_retries = task_config.get("retries", 1)
+        await self._execute_task_attempt(task_id, task_config, agent, max_retries)
+
+    async def _execute_task_attempt(
+        self, task_id: str, task_config: dict, agent: dict,
+        retries_left: int,
+    ):
+        """Einzelner Ausführungsversuch mit optionalem Retry."""
         task_type = task_config.get("type", "claude")
         prompt = task_config.get("prompt", "")
         timeout = task_config.get("timeout_seconds", 300)
@@ -264,12 +274,36 @@ class TaskScheduler:
 
         except Exception as e:
             elapsed = (datetime.now() - start).total_seconds()
+            error_str = str(e)
+
+            # Transiente Fehler erkennen (DNS, Netzwerk) → automatisch Retry
+            transient_errors = [
+                "name resolution",
+                "ConnectError",
+                "ConnectionReset",
+                "ConnectionRefused",
+                "Temporary failure",
+                "Network is unreachable",
+            ]
+            is_transient = any(t in error_str for t in transient_errors)
+
+            if is_transient and retries_left > 0:
+                log.warning(
+                    "🔄 Scheduler: Transienter Fehler bei '%s': %s – Retry in 30s (%d verbleibend)",
+                    task_id, error_str[:80], retries_left,
+                )
+                await asyncio.sleep(30)
+                await self._execute_task_attempt(
+                    task_id, task_config, agent, retries_left - 1
+                )
+                return
+
             log.exception("❌ Scheduler: Fehler bei Task '%s': %s", task_id, e)
             self._state.setdefault(task_id, {}).update({
                 "last_run": datetime.now().isoformat(),
                 "last_status": "error",
                 "last_duration_seconds": round(elapsed, 1),
-                "last_error": str(e),
+                "last_error": error_str,
             })
 
         finally:

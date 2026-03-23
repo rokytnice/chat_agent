@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-22T12:48:07.717171",
+  "last_updated": "2026-03-22T16:26:04.957071",
   "agents": [
     {
       "id": "assistant",
@@ -344,13 +344,6 @@
       "task": "taskprep_precheck",
       "status": "success",
       "message": "OK (11.8s)"
-    },
-    {
-      "timestamp": "2026-02-28T10:31:04.431015",
-      "agent": "claude_cpu_monitor",
-      "task": "claude_cpu_monitor",
-      "status": "timeout",
-      "message": "Timeout nach 30s"
     }
   ]
 }

@@ -1,5 +1,58 @@
 # Changelog
 
+## [0.24.1] - 2026-03-23
+### Hinzugefuegt
+- **Dashboard: Content & Kanaele Sektion** 🔗
+  - Neue Sektion mit Links zu allen Content-Plattformen der Agenten
+  - WordPress Blog, Twitter/X, Instagram, Reddit, GitHub, Dashboard
+  - Hover-Effekte und responsive Grid-Layout
+
+## [0.24.0] - 2026-03-22
+### Behoben
+- **Scheduler Retry-Logik fuer transiente Netzwerkfehler** 🔄
+  - Automatischer Retry bei DNS-Fehlern, Connection-Resets und aehnlichen transienten Fehlern
+  - 30 Sekunden Wartezeit zwischen Versuchen
+  - Konfigurierbar via `"retries": N` in Task-Config (Standard: 1)
+  - Behebt naechtliche Ausfaelle durch WLAN-Sleep (DNS resolution failures)
+- **Timeout-Erhoehungen fuer langsame Tasks**
+  - sync_calendar: 300s → 600s
+  - sync_drive: 120s → 300s
+  - taskprep_evening: 300s → 600s
+- **Retry-Config fuer fehleranfaellige Tasks hinzugefuegt**
+  - sync_calendar, sync_contacts, sync_drive, taskprep_morning, taskprep_evening, daily_news, daily_videos
+- **Stale Dashboard-Eintraege bereinigt**
+  - claude_cpu_monitor Eintrag aus Februar entfernt
+
+## [0.23.0] - 2026-03-22
+### Hinzugefuegt
+- **Instagram Poster Modul** (`lib/instagram_poster.py`) 📸
+  - Caption-Format jetzt IDENTISCH zum Twitter/X-Format
+  - Format: ⚠️ Titel (Quelle) + 🔗 URL + 🛡️ CTA + Hashtags
+  - Batch-Caption-Generierung: `echo '[articles]' | python -m lib.instagram_poster --batch-captions`
+  - Deduplizierung via `data/instagram_posted.json`
+  - Bild-Handling mit OG-Image, YouTube-Thumbnails und Fallback-Logo
+  - Integration mit `twitter_poster.py` fuer Bild-Download
+- **Newsradar & Videoradar Instagram-Sync** 🔄
+  - Instagram-Anweisungen in beiden Agenten aktualisiert
+  - Captions jetzt exakt im Twitter-Format (statt eigenes Format)
+  - Automatische Markierung geposteter Artikel zur Vermeidung von Duplikaten
+
+## [0.22.0] - 2026-03-22
+### Hinzugefuegt
+- **eufy Security Agent** 🔐
+  - Automatische Alarmsteuerung basierend auf Anwesenheit und Tageszeit
+  - Anwesenheitserkennung via ARP-Tabelle / Ping / arp-scan (Smartphone MAC)
+  - Tageslichterkennung via `astral` (Sonnenstand Berlin) + Open-Meteo Wetter-API
+  - eufy Steuerung via `eufy-security-client` (Node.js Bridge)
+  - Logik: Abwesend + Tag + hell → Modus "Zuhause", Abwesend + Tag + dunkel → Modus "Abwesend"
+  - Nacht → keine Aenderung (Zeitsteuerung/Alarm bleibt aktiv)
+  - Schutz vor Fehlalarmen: 2 aufeinanderfolgende Abwesenheits-Checks noetig
+  - Scheduled Task alle 5 Minuten (silent, bash-Typ)
+  - State-Tracking in `data/eufy_state.json`
+  - Module: `lib/eufy_security/` (agent.py, presence.py, daylight.py, eufy_control.js)
+  - CLI: `python -m lib.eufy_security.agent [--dry-run] [--status] [--mac MAC]`
+  - **Noch nicht aktiviert** – benötigt: EUFY_EMAIL, EUFY_PASSWORD, PHONE_MAC in .env
+
 ## [0.21.0] - 2026-03-22
 ### Hinzugefuegt
 - **Assistina Dashboard (GitHub Pages)** 📊
