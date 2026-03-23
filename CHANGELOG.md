@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.24.2] - 2026-03-23
+### Geaendert
+- **Twitter/X Anti-Spam Optimierung** 🐦
+  - Bio und Website-URL fuer @fake_defense_ai gesetzt (vorher leer)
+  - Tweet-Delay von 5s auf 30s erhoeht (Anti-Spam)
+  - Max 3 Tweets pro Batch (statt unbegrenzt)
+  - Alle 88 alten unsichtbaren Tweets geloescht (Twitter Spam-Filter hatte sie versteckt)
+  - Dashboard: Reddit-Link entfernt (Subreddit existiert nicht)
+
 ## [0.24.1] - 2026-03-23
 ### Hinzugefuegt
 - **Dashboard: Content & Kanaele Sektion** 🔗

@@ -248,7 +248,7 @@ def post_tweet(text: str, image_path: str = None) -> dict:
     }
 
 
-def post_article_tweets(articles: list[dict], blog_url: str = "") -> list[dict]:
+def post_article_tweets(articles: list[dict], blog_url: str = "", max_tweets: int = 3) -> list[dict]:
     """Poste einen Tweet pro Artikel mit Bild. Gibt Liste der Ergebnisse zurück.
 
     articles: Liste von dicts mit 'title', 'source', 'url'
@@ -256,10 +256,17 @@ def post_article_tweets(articles: list[dict], blog_url: str = "") -> list[dict]:
                         'video_id' (YouTube Video-ID für Thumbnail),
                         'thumbnail_local' (bereits heruntergeladenes Thumbnail)
     blog_url: Optional – Link zum Gesamt-Blogpost
+    max_tweets: Maximale Anzahl Tweets pro Batch (Anti-Spam, Default: 3)
     """
     import time
     results = []
     client = get_client()
+
+    # Anti-Spam: Maximal max_tweets pro Durchlauf
+    if len(articles) > max_tweets:
+        print(f"⚠️ {len(articles)} Artikel, aber max {max_tweets} Tweets pro Batch (Anti-Spam). "
+              f"Überspringe {len(articles) - max_tweets} Artikel.", file=sys.stderr)
+        articles = articles[:max_tweets]
 
     for i, article in enumerate(articles):
         title = article.get("title", "")
@@ -352,9 +359,10 @@ def post_article_tweets(articles: list[dict], blog_url: str = "") -> list[dict]:
 
         results.append(result)
 
-        # 5 Sekunden Pause zwischen Tweets (Rate-Limiting)
+        # 30 Sekunden Pause zwischen Tweets (Anti-Spam für neuen Account)
         if i < len(articles) - 1:
-            time.sleep(5)
+            print(f"⏳ Warte 30s vor nächstem Tweet (Anti-Spam)...", file=sys.stderr)
+            time.sleep(30)
 
     return results
 
