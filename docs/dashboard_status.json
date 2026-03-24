@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-24T18:00:44.086496",
+  "last_updated": "2026-03-24T18:00:51.396362",
   "agents": [
     {
       "id": "assistant",
@@ -116,11 +116,11 @@
           "description": "Konversations-Sync alle 6 Stunden in RAG",
           "cron": "0 */6 * * *",
           "enabled": true,
-          "last_run": "2026-03-24T12:00:40.246702",
+          "last_run": "2026-03-24T18:00:51.192923",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 2.7,
-          "run_count": 9
+          "last_duration_seconds": 1.8,
+          "run_count": 10
         }
       ]
     },
@@ -262,6 +262,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-24T18:00:51.192923",
+      "agent": "sync_conversations",
+      "task": "sync_conversations",
+      "status": "success",
+      "message": "OK (1.8s)"
+    },
+    {
       "timestamp": "2026-03-24T18:00:44.085089",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -281,13 +288,6 @@
       "task": "email_check",
       "status": "success",
       "message": "OK (64.4s)"
-    },
-    {
-      "timestamp": "2026-03-24T12:00:40.246702",
-      "agent": "sync_conversations",
-      "task": "sync_conversations",
-      "status": "success",
-      "message": "OK (2.7s)"
     },
     {
       "timestamp": "2026-03-24T07:02:32.623949",
