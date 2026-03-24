@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-24T21:00:16.196136",
+  "last_updated": "2026-03-24T21:11:56.381160",
   "agents": [
     {
       "id": "assistant",
@@ -169,18 +169,18 @@
       "id": "newsradar",
       "name": "Fake-Shop News Radar",
       "emoji": "📰",
-      "status": "timeout",
+      "status": "success",
       "tasks": [
         {
           "id": "daily_news",
           "description": "Täglicher Fake-Shop News Scan um 21 Uhr",
           "cron": "0 21 * * *",
           "enabled": true,
-          "last_run": "2026-03-23T21:10:57.377849",
-          "last_status": "timeout",
-          "last_error": "Timeout nach 600s",
-          "last_duration_seconds": 600.6,
-          "run_count": 5
+          "last_run": "2026-03-24T21:11:56.240983",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 699.2,
+          "run_count": 6
         }
       ]
     },
@@ -262,6 +262,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-24T21:11:56.240983",
+      "agent": "daily_news",
+      "task": "daily_news",
+      "status": "success",
+      "message": "OK (699.2s)"
+    },
+    {
       "timestamp": "2026-03-24T21:00:16.194508",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -309,13 +316,6 @@
       "task": "sync_drive",
       "status": "success",
       "message": "OK (38.6s)"
-    },
-    {
-      "timestamp": "2026-03-23T21:10:57.377849",
-      "agent": "daily_news",
-      "task": "daily_news",
-      "status": "timeout",
-      "message": "Timeout nach 600s"
     },
     {
       "timestamp": "2026-03-23T20:01:55.926209",
