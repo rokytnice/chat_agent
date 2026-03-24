@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-24T16:30:08.010113",
+  "last_updated": "2026-03-24T16:31:18.798088",
   "agents": [
     {
       "id": "assistant",
@@ -72,11 +72,11 @@
           "description": "Gmail-Sync alle 4 Stunden",
           "cron": "30 */4 * * *",
           "enabled": true,
-          "last_run": "2026-03-24T12:31:24.510790",
+          "last_run": "2026-03-24T16:31:18.795945",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 42.1,
-          "run_count": 83
+          "last_duration_seconds": 69.8,
+          "run_count": 84
         },
         {
           "id": "sync_calendar",
@@ -262,6 +262,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-24T16:31:18.795945",
+      "agent": "sync_gmail",
+      "task": "sync_gmail",
+      "status": "success",
+      "message": "OK (69.8s)"
+    },
+    {
       "timestamp": "2026-03-24T16:30:08.008022",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -274,13 +281,6 @@
       "task": "email_check",
       "status": "success",
       "message": "OK (64.4s)"
-    },
-    {
-      "timestamp": "2026-03-24T12:31:24.510790",
-      "agent": "sync_gmail",
-      "task": "sync_gmail",
-      "status": "success",
-      "message": "OK (42.1s)"
     },
     {
       "timestamp": "2026-03-24T12:00:40.246702",
