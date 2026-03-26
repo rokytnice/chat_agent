@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-26T20:00:33.495149",
+  "last_updated": "2026-03-26T20:02:24.892806",
   "agents": [
     {
       "id": "assistant",
@@ -157,11 +157,11 @@
           "description": "Abend-Review täglich 20 Uhr",
           "cron": "0 20 * * *",
           "enabled": true,
-          "last_run": "2026-03-23T20:01:55.926209",
+          "last_run": "2026-03-26T20:02:24.752557",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 113.0,
-          "run_count": 8
+          "last_duration_seconds": 105.4,
+          "run_count": 9
         }
       ]
     },
@@ -262,6 +262,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-26T20:02:24.752557",
+      "agent": "taskprep_evening",
+      "task": "taskprep_evening",
+      "status": "success",
+      "message": "OK (105.4s)"
+    },
+    {
       "timestamp": "2026-03-26T20:00:33.493183",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -316,13 +323,6 @@
       "task": "daily_news",
       "status": "success",
       "message": "OK (699.2s)"
-    },
-    {
-      "timestamp": "2026-03-23T20:01:55.926209",
-      "agent": "taskprep_evening",
-      "task": "taskprep_evening",
-      "status": "success",
-      "message": "OK (113.0s)"
     },
     {
       "timestamp": "2026-03-22T22:07:21.747048",
