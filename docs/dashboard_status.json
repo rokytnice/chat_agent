@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T00:01:45.584413",
+  "last_updated": "2026-03-27T00:26:46.205030",
   "agents": [
     {
       "id": "assistant",
@@ -46,17 +46,17 @@
       "id": "mailcheck",
       "name": "E-Mail Wächter",
       "emoji": "📧",
-      "status": "success",
+      "status": "timeout",
       "tasks": [
         {
           "id": "email_check",
           "description": "E-Mail-Check alle 5 Stunden",
           "cron": "23 */5 * * *",
           "enabled": true,
-          "last_run": "2026-03-26T20:24:13.942985",
-          "last_status": "success",
-          "last_error": null,
-          "last_duration_seconds": 47.2,
+          "last_run": "2026-03-27T00:26:46.203134",
+          "last_status": "timeout",
+          "last_error": "Timeout nach 180s",
+          "last_duration_seconds": 180.5,
           "run_count": 133
         }
       ]
@@ -262,6 +262,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-27T00:26:46.203134",
+      "agent": "email_check",
+      "task": "email_check",
+      "status": "timeout",
+      "message": "Timeout nach 180s"
+    },
+    {
       "timestamp": "2026-03-27T00:01:45.582666",
       "agent": "sync_conversations",
       "task": "sync_conversations",
@@ -288,13 +295,6 @@
       "task": "sync_gmail",
       "status": "success",
       "message": "OK (41.8s)"
-    },
-    {
-      "timestamp": "2026-03-26T20:24:13.942985",
-      "agent": "email_check",
-      "task": "email_check",
-      "status": "success",
-      "message": "OK (47.2s)"
     },
     {
       "timestamp": "2026-03-26T20:02:24.752557",
