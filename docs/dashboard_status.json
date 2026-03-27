@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T20:02:14.017765",
+  "last_updated": "2026-03-27T20:24:32.948228",
   "agents": [
     {
       "id": "assistant",
@@ -64,11 +64,11 @@
           "description": "E-Mail-Check alle 5 Stunden",
           "cron": "23 */5 * * *",
           "enabled": true,
-          "last_run": "2026-03-27T15:24:53.892065",
+          "last_run": "2026-03-27T20:24:32.754422",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 100.3,
-          "run_count": 135
+          "last_duration_seconds": 77.7,
+          "run_count": 136
         }
       ]
     },
@@ -273,6 +273,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-27T20:24:32.754422",
+      "agent": "email_check",
+      "task": "email_check",
+      "status": "success",
+      "message": "OK (77.7s)"
+    },
+    {
       "timestamp": "2026-03-27T20:02:13.861307",
       "agent": "taskprep_evening",
       "task": "taskprep_evening",
@@ -306,13 +313,6 @@
       "task": "sync_gmail",
       "status": "success",
       "message": "OK (63.5s)"
-    },
-    {
-      "timestamp": "2026-03-27T15:24:53.892065",
-      "agent": "email_check",
-      "task": "email_check",
-      "status": "success",
-      "message": "OK (100.3s)"
     },
     {
       "timestamp": "2026-03-27T07:02:22.669067",
