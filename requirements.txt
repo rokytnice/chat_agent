@@ -9,3 +9,5 @@ dateparser>=1.2.0
 feedparser>=6.0.0
 tweepy>=4.14.0
 praw>=7.7.0
+googlenewsdecoder
+yfinance>=1.2.0

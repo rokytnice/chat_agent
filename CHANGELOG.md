@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.24.9] - 2026-03-27
+### Hinzugefügt
+- **Aktien-Crash-Monitor** 📉
+  - Neuer Agent `stock_crash_monitor` prueft alle 30 Min (Mo-Fr 6-22 Uhr) auf Kurseinbrueche
+  - Ueberwacht 28 Ticker: 8 Indizes (S&P 500, DAX, NASDAQ, etc.) + 10 Top US-Aktien + 10 Top EU-Aktien
+  - Telegram-Alert bei >= 20% Kursverlust gegenueber Vortagesschluss
+  - State-Datei `data/stock_state.json` speichert letzte Kurse und Meta-Info
+  - Basiert auf `yfinance` fuer Echtzeit-Kursdaten
+  - Laeuft als stiller Bash-Task (kein Claude-Aufruf noetig)
+
 ## [0.24.8] - 2026-03-27
 ### Hinzugefügt
 - **Sessions-Anzeige im Dashboard** 🧠

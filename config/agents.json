@@ -54,6 +54,16 @@
           "prompt": "ERINNERUNG: Lisas E-Scooter-Versicherungskennzeichen läuft am 28. Februar ab!\n\nDetails:\n- Versicherungsnehmerin: Lisa Eisenblätter\n- Versicherer: AdmiralDirekt (über CHECK24)\n- Aktuelle Police: ESC-55749419\n- Ablauf: 28.02. des aktuellen Jahres\n- Fahrzeug: E-Scooter bis 20 km/h, FIN: JE91S851M04361\n\nBitte:\n1. Prüfe in Lisas E-Mails (eisenbaetter.lisa@gmail.com) oder CHECK24, ob die Versicherung automatisch verlängert wurde\n2. Falls nicht: Neue Versicherung abschließen (ca. 25-30€/Jahr)\n3. Neues Versicherungskennzeichen bestellen/aufkleben (Farbwechsel jedes Jahr am 1. März!)\n4. Sende André eine Telegram-Nachricht mit dem Status\n\n⚠️ WICHTIG: Ohne gültiges Kennzeichen ab 1. März ist das Fahren eine STRAFTAT (§6 PflVG)!",
           "timeout_seconds": 300,
           "description": "E-Scooter Versicherungserinnerung am 10. Februar jedes Jahr"
+        },
+        {
+          "id": "stock_crash_monitor",
+          "enabled": true,
+          "type": "bash",
+          "silent": true,
+          "cron": "*/30 6-22 * * 1-5",
+          "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
+          "timeout_seconds": 120,
+          "description": "Aktien-Crash-Monitor alle 30 Min (Mo-Fr 6-22 Uhr)"
         }
       ]
     },
@@ -161,6 +171,7 @@
         {
           "id": "sync_calendar",
           "enabled": true,
+          "silent": true,
           "cron": "0 6 * * *",
           "prompt": "Synchronisiere Kalender: Öffne calendar.google.com, erfasse alle sichtbaren Termine der nächsten 14 Tage. Speichere als JSON in data/sync_calendar.json und importiere in die Wissensbasis.",
           "timeout_seconds": 600,
@@ -170,6 +181,7 @@
         {
           "id": "sync_contacts",
           "enabled": true,
+          "silent": true,
           "cron": "0 3 * * 0",
           "prompt": "Synchronisiere Kontakte: Öffne contacts.google.com, erfasse alle Kontakte mit Name, E-Mail, Telefon, Organisation. Speichere als JSON in data/sync_contacts.json und importiere in die Wissensbasis.",
           "timeout_seconds": 600,
@@ -179,6 +191,7 @@
         {
           "id": "sync_drive",
           "enabled": true,
+          "silent": true,
           "type": "bash",
           "cron": "0 4 * * *",
           "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.knowledge_sync drive",
@@ -189,6 +202,7 @@
         {
           "id": "sync_conversations",
           "enabled": true,
+          "silent": true,
           "type": "bash",
           "cron": "0 */6 * * *",
           "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.conversation_sync",
@@ -267,8 +281,9 @@
           "enabled": true,
           "cron": "0 21 * * *",
           "prompt": "Führe den täglichen News-Scan durch: Starte das News-Script, erstelle bei neuen Artikeln einen WordPress-Blogbeitrag, aktualisiere die Blog-Übersichtsseite, poste auf Twitter/X und Instagram. Melde das Ergebnis mit allen Links.",
-          "timeout_seconds": 600,
+          "timeout_seconds": 1800,
           "retries": 1,
+          "progress_interval": 120,
           "description": "Täglicher Fake-Shop News Scan um 21 Uhr"
         }
       ]
@@ -290,8 +305,9 @@
           "enabled": true,
           "cron": "0 22 * * *",
           "prompt": "Führe den täglichen Video-Scan durch: Starte das Video-Script, erstelle bei neuen Videos einen WordPress-Blogbeitrag, poste auf Twitter/X und Instagram, und sende alle Links per Telegram.",
-          "timeout_seconds": 900,
+          "timeout_seconds": 1800,
           "retries": 1,
+          "progress_interval": 120,
           "description": "Täglicher Video Radar Scan um 22 Uhr"
         }
       ]
