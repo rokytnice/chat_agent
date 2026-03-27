@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T07:00:51.672967",
+  "last_updated": "2026-03-27T07:02:22.786951",
   "agents": [
     {
       "id": "assistant",
@@ -135,11 +135,11 @@
           "description": "Morgen-Briefing täglich 7 Uhr",
           "cron": "0 7 * * *",
           "enabled": true,
-          "last_run": "2026-03-25T07:01:52.890278",
+          "last_run": "2026-03-27T07:02:22.669067",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 105.0,
-          "run_count": 14
+          "last_duration_seconds": 90.2,
+          "run_count": 15
         },
         {
           "id": "taskprep_precheck",
@@ -262,6 +262,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-27T07:02:22.669067",
+      "agent": "taskprep_morning",
+      "task": "taskprep_morning",
+      "status": "success",
+      "message": "OK (90.2s)"
+    },
+    {
       "timestamp": "2026-03-27T07:00:51.671101",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -316,13 +323,6 @@
       "task": "taskprep_evening",
       "status": "success",
       "message": "OK (105.4s)"
-    },
-    {
-      "timestamp": "2026-03-25T07:01:52.890278",
-      "agent": "taskprep_morning",
-      "task": "taskprep_morning",
-      "status": "success",
-      "message": "OK (105.0s)"
     },
     {
       "timestamp": "2026-03-24T21:11:56.240983",
