@@ -80,6 +80,17 @@
   .content-link .cl-url { font-size: 0.7rem; color: var(--accent); word-break: break-all; }
   .section-desc { font-size: 0.8rem; color: var(--dim); margin-bottom: 0.75rem; }
 
+  /* Sessions */
+  .session-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1rem; transition: border-color 0.2s; }
+  .session-card:hover { border-color: var(--purple); }
+  .session-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .session-name { font-weight: 600; font-size: 0.95rem; }
+  .session-id { font-family: monospace; font-size: 0.75rem; color: var(--purple); background: rgba(188,140,255,0.1); padding: 2px 6px; border-radius: 4px; }
+  .session-meta { display: flex; gap: 1rem; font-size: 0.78rem; color: var(--dim); flex-wrap: wrap; }
+  .session-meta .size { color: var(--accent); }
+  .session-bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 0.5rem; overflow: hidden; }
+  .session-bar-fill { height: 100%; border-radius: 2px; background: var(--purple); transition: width 0.3s; }
+
   .loading { text-align: center; padding: 3rem; color: var(--dim); }
   .error-banner { background: rgba(248,81,73,0.15); border: 1px solid var(--red); color: var(--red); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
 
@@ -111,6 +122,7 @@
   <div class="stat"><div class="val" id="s-tasks">-</div><div class="lbl">Tasks aktiv</div></div>
   <div class="stat"><div class="val" id="s-runs">-</div><div class="lbl">Runs gesamt</div></div>
   <div class="stat"><div class="val" id="s-errors">-</div><div class="lbl">Errors</div></div>
+  <div class="stat"><div class="val" id="s-sessions">-</div><div class="lbl">Sessions</div></div>
   <div class="stat"><div class="val" id="s-retouren">-</div><div class="lbl">Retouren offen</div></div>
 </div>
 
@@ -161,6 +173,12 @@
 
 <h2>Agenten</h2>
 <div class="grid" id="agents-grid">
+  <div class="loading">Lade Daten...</div>
+</div>
+
+<h2>Sessions</h2>
+<div class="section-desc">Persistente Claude-Sessions pro Agent – Kontext bleibt erhalten</div>
+<div class="grid" id="sessions-grid">
   <div class="loading">Lade Daten...</div>
 </div>
 
@@ -287,6 +305,30 @@ function renderRetouren(retouren) {
   </div>`;
 }
 
+function renderSessions(sessions) {
+  const grid = document.getElementById('sessions-grid');
+  if (!sessions || sessions.length === 0) { grid.innerHTML = '<div class="loading">Keine Sessions</div>'; return; }
+
+  const maxSize = Math.max(...sessions.map(s => s.transcript_mb || 0), 1);
+
+  grid.innerHTML = sessions.map(s => {
+    const pct = maxSize > 0 ? Math.min(((s.transcript_mb || 0) / maxSize) * 100, 100) : 0;
+    const sizeColor = s.transcript_mb > 50 ? 'var(--orange)' : (s.transcript_mb > 20 ? 'var(--accent)' : 'var(--green)');
+    const barColor = s.transcript_mb > 50 ? 'var(--orange)' : 'var(--purple)';
+    return `<div class="session-card">
+      <div class="session-header">
+        <span class="session-name">${s.emoji || ''} ${s.name || s.agent_id}</span>
+        <span class="session-id">${s.session_id}</span>
+      </div>
+      <div class="session-meta">
+        <span class="size" style="color:${sizeColor}">${s.transcript_mb} MB</span>
+        <span>Letzte Aktivitaet: ${relTime(s.last_activity)}</span>
+      </div>
+      <div class="session-bar"><div class="session-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
 function renderLog(log) {
   const el = document.getElementById('activity-log');
   if (!log || log.length === 0) { el.innerHTML = '<div class="loading">Keine Eintraege</div>'; return; }
@@ -317,9 +359,11 @@ function render(data) {
   document.getElementById('s-runs').textContent = totalRuns;
   document.getElementById('s-errors').textContent = errorTasks;
   document.getElementById('s-errors').style.color = errorTasks > 0 ? 'var(--red)' : 'var(--green)';
+  document.getElementById('s-sessions').textContent = (data.sessions || []).length;
   document.getElementById('s-retouren').textContent = data.retouren?.pending_count || 0;
 
   renderAgents(agents);
+  renderSessions(data.sessions);
   renderRetouren(data.retouren);
   renderLog(data.activity_log);
 

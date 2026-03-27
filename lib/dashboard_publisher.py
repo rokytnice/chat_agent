@@ -13,6 +13,8 @@ DOCS_DIR = PROJECT_DIR / "docs"
 STATUS_FILE = DOCS_DIR / "dashboard_status.json"
 AGENTS_CONFIG = PROJECT_DIR / "config" / "agents.json"
 SCHEDULER_STATE = PROJECT_DIR / "data" / "scheduler_state.json"
+SESSIONS_FILE = PROJECT_DIR / "data" / "sessions.json"
+TRANSCRIPT_DIR = Path.home() / ".claude" / "projects" / "-home-aroc-projects-chat-agent"
 RETOUREN_FILE = Path.home() / "gdrive" / "5_Privat" / "retouren_tracking.json"
 HASH_FILE = PROJECT_DIR / "data" / "dashboard_hash.txt"
 MIN_PUSH_INTERVAL = 300  # 5 minutes
@@ -99,6 +101,39 @@ def _build_retouren(retouren_data):
     }
 
 
+def _build_sessions(config):
+    """Build sessions section with transcript info per agent."""
+    sessions_data = _load_json(SESSIONS_FILE)
+    if not sessions_data:
+        return []
+
+    agents_cfg = config.get("agents", {})
+    sessions = []
+    for agent_id, session_id in sessions_data.items():
+        agent_cfg = agents_cfg.get(agent_id, {})
+        transcript = TRANSCRIPT_DIR / f"{session_id}.jsonl"
+
+        size_mb = 0
+        last_modified = None
+        if transcript.exists():
+            stat = transcript.stat()
+            size_mb = stat.st_size / (1024 * 1024)
+            last_modified = datetime.fromtimestamp(stat.st_mtime).isoformat()
+
+        sessions.append({
+            "agent_id": agent_id,
+            "name": agent_cfg.get("name", agent_id),
+            "emoji": agent_cfg.get("emoji", ""),
+            "session_id": session_id[:8],
+            "transcript_mb": round(size_mb, 1),
+            "last_activity": last_modified,
+        })
+
+    # Sort by last_activity desc (most recent first), None last
+    sessions.sort(key=lambda s: s["last_activity"] or "", reverse=True)
+    return sessions
+
+
 def _build_activity_log(state):
     """Build activity log from scheduler state (sorted by last_run desc)."""
     entries = []
@@ -125,6 +160,7 @@ def generate_status():
     return {
         "last_updated": datetime.now().isoformat(),
         "agents": _build_agents(config, state),
+        "sessions": _build_sessions(config),
         "retouren": _build_retouren(retouren),
         "activity_log": _build_activity_log(state),
     }
