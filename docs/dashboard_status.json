@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T20:30:36.386995",
+  "last_updated": "2026-03-27T20:31:28.185712",
   "agents": [
     {
       "id": "assistant",
@@ -83,11 +83,11 @@
           "description": "Gmail-Sync alle 4 Stunden",
           "cron": "30 */4 * * *",
           "enabled": true,
-          "last_run": "2026-03-27T16:32:03.103168",
+          "last_run": "2026-03-27T20:31:28.184212",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 63.5,
-          "run_count": 97
+          "last_duration_seconds": 50.8,
+          "run_count": 98
         },
         {
           "id": "sync_calendar",
@@ -273,6 +273,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-27T20:31:28.184212",
+      "agent": "sync_gmail",
+      "task": "sync_gmail",
+      "status": "success",
+      "message": "OK (50.8s)"
+    },
+    {
       "timestamp": "2026-03-27T20:30:36.385543",
       "agent": "stock_crash_monitor",
       "task": "stock_crash_monitor",
@@ -306,13 +313,6 @@
       "task": "sync_conversations",
       "status": "success",
       "message": "OK (1.9s)"
-    },
-    {
-      "timestamp": "2026-03-27T16:32:03.103168",
-      "agent": "sync_gmail",
-      "task": "sync_gmail",
-      "status": "success",
-      "message": "OK (63.5s)"
     },
     {
       "timestamp": "2026-03-27T07:02:22.669067",
