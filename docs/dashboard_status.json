@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T21:30:59.910191",
+  "last_updated": "2026-03-27T22:00:01.019081",
   "agents": [
     {
       "id": "assistant",
@@ -12,11 +12,11 @@
           "description": "Chrome Browser Health-Check alle 30 Min (Auto-Recovery)",
           "cron": "*/30 * * * *",
           "enabled": true,
-          "last_run": "2026-03-27T21:30:57.165445",
+          "last_run": "2026-03-27T22:00:01.016575",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 460
+          "run_count": 461
         },
         {
           "id": "ustva_check",
@@ -273,18 +273,18 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-27T22:00:01.016575",
+      "agent": "chrome_health",
+      "task": "chrome_health",
+      "status": "success",
+      "message": "OK (0.1s)"
+    },
+    {
       "timestamp": "2026-03-27T21:30:59.908596",
       "agent": "stock_crash_monitor",
       "task": "stock_crash_monitor",
       "status": "success",
       "message": "OK (1.2s)"
-    },
-    {
-      "timestamp": "2026-03-27T21:30:57.165445",
-      "agent": "chrome_health",
-      "task": "chrome_health",
-      "status": "success",
-      "message": "OK (0.1s)"
     },
     {
       "timestamp": "2026-03-27T21:22:56.032674",
