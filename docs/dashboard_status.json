@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T17:00:04.360796",
+  "last_updated": "2026-03-27T17:30:06.874198",
   "agents": [
     {
       "id": "assistant",
@@ -12,11 +12,11 @@
           "description": "Chrome Browser Health-Check alle 30 Min (Auto-Recovery)",
           "cron": "*/30 * * * *",
           "enabled": true,
-          "last_run": "2026-03-27T17:00:04.358516",
+          "last_run": "2026-03-27T17:30:06.872540",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 451
+          "run_count": 452
         },
         {
           "id": "ustva_check",
@@ -33,6 +33,17 @@
           "id": "escooter_versicherung",
           "description": "E-Scooter Versicherungserinnerung am 10. Februar jedes Jahr",
           "cron": "0 9 10 2 *",
+          "enabled": true,
+          "last_run": null,
+          "last_status": null,
+          "last_error": null,
+          "last_duration_seconds": null,
+          "run_count": 0
+        },
+        {
+          "id": "stock_crash_monitor",
+          "description": "Aktien-Crash-Monitor alle 30 Min (Mo-Fr 6-22 Uhr)",
+          "cron": "*/30 6-22 * * 1-5",
           "enabled": true,
           "last_run": null,
           "last_status": null,
@@ -262,7 +273,7 @@
   },
   "activity_log": [
     {
-      "timestamp": "2026-03-27T17:00:04.358516",
+      "timestamp": "2026-03-27T17:30:06.872540",
       "agent": "chrome_health",
       "task": "chrome_health",
       "status": "success",
