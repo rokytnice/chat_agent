@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-27T18:00:13.405714",
+  "last_updated": "2026-03-27T18:00:16.378341",
   "agents": [
     {
       "id": "assistant",
@@ -127,11 +127,11 @@
           "description": "Konversations-Sync alle 6 Stunden in RAG",
           "cron": "0 */6 * * *",
           "enabled": true,
-          "last_run": "2026-03-27T12:01:01.455379",
+          "last_run": "2026-03-27T18:00:16.376831",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 2.9,
-          "run_count": 15
+          "last_duration_seconds": 1.9,
+          "run_count": 16
         }
       ]
     },
@@ -273,6 +273,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-27T18:00:16.376831",
+      "agent": "sync_conversations",
+      "task": "sync_conversations",
+      "status": "success",
+      "message": "OK (1.9s)"
+    },
+    {
       "timestamp": "2026-03-27T18:00:13.402752",
       "agent": "stock_crash_monitor",
       "task": "stock_crash_monitor",
@@ -299,13 +306,6 @@
       "task": "email_check",
       "status": "success",
       "message": "OK (100.3s)"
-    },
-    {
-      "timestamp": "2026-03-27T12:01:01.455379",
-      "agent": "sync_conversations",
-      "task": "sync_conversations",
-      "status": "success",
-      "message": "OK (2.9s)"
     },
     {
       "timestamp": "2026-03-27T07:02:22.669067",
