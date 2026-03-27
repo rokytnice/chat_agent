@@ -1,5 +1,57 @@
 # Changelog
 
+## [0.24.8] - 2026-03-27
+### Hinzugefügt
+- **Sessions-Anzeige im Dashboard** 🧠
+  - Neue Sektion "Sessions" auf dem Assistina Dashboard
+  - Zeigt alle 8 persistenten Claude-Sessions mit Agent-Name, Emoji und Session-ID
+  - Transcript-Groesse in MB mit Farbcodierung (grün < 20MB, blau < 50MB, orange > 50MB)
+  - Fortschrittsbalken zeigt relative Groesse der Transcripts
+  - Letzte Aktivitaet als relative Zeitangabe
+  - Sessions-Zähler in der Stats-Bar
+  - Dashboard-Publisher (`lib/dashboard_publisher.py`) um `_build_sessions()` erweitert
+
+## [0.24.7] - 2026-03-26
+### Behoben
+- **Timeout-Probleme komplett überarbeitet** 🔌
+  - **Progress-Ticker**: Alle 60s kommt jetzt eine Chat-Nachricht "⏳ Arbeite noch..." bei langen Aufgaben – kein stilles Warten mehr
+  - **Worker-Idle-Timeout**: Von 5 Min auf 30 Min erhöht – Bot stirbt nicht mehr bei kurzer Inaktivität
+  - **Claude-Timeout**: Von 10 auf 15 Min erhöht – komplexe Aufgaben brechen nicht mehr ab
+  - **TypingLoop robust**: Netzwerk-Fehler im Typing-Indikator werden abgefangen statt zum Crash zu führen
+  - **HTTP-Client gestärkt**: `HTTPXRequest` mit höheren Timeouts (read=45s, connect=20s, write=30s) und Connection-Pool (8)
+  - **Sauberes Logging**: `NetworkError`/`TimedOut` als WARNING statt ERROR (normal bei Long-Polling)
+  - Explizite Timeout-Werte für `run_polling()`: read=30s, connect=15s, pool=10s
+
+## [0.24.6] - 2026-03-25
+### Behoben
+- **Scheduler: Progress-Updates jetzt zuverlässig** ⏳
+  - Bug behoben: Zwischenstand-Updates wurden nur gesendet wenn stdout-Output kam
+  - Neuer unabhängiger Timer (`_progress_ticker`) sendet Updates alle `progress_interval` Sekunden, auch wenn Claude "denkt" und nichts ausgibt
+  - Nutzt `asyncio.Event` + parallele Tasks statt inline-Check im Readline-Loop
+
+## [0.24.5] - 2026-03-24
+### Geändert
+- **Social Media Postings: Original-Artikelbilder statt Logo** 📸
+  - Google News RSS-URLs werden jetzt zur echten Artikel-URL aufgelöst (via googlenewsdecoder)
+  - OG-Images werden von den Original-Artikeln heruntergeladen
+  - **Kein Logo-Fallback mehr** – Posts ohne Artikelbild werden übersprungen
+  - **Quellenangabe** für Bilder (📷 domain.de) in jedem Post
+  - Jeder Post hat immer: Bild + Text + Link
+  - Gilt für Twitter/X UND Instagram
+  - `download_article_image()` gibt jetzt Tuple (path, source_domain) zurück
+  - Neue Dependency: `googlenewsdecoder`
+
+## [0.24.4] - 2026-03-24
+### Geändert
+- **Scheduler: Streaming-Fortschritt** – Claude-Tasks senden jetzt alle 2 Min einen Zwischenstand in den Chat (letzte 5 Output-Zeilen)
+- **Scheduler: Timeout-Meldungen entfernt** – Timeouts werden nur noch geloggt, nicht mehr im Chat angezeigt
+- **Timeout erhöht** – daily_news und daily_videos auf 1800s (30 Min) statt 600/900s
+
+## [0.24.3] - 2026-03-23
+### Entfernt
+- **Worker-Bot Metriken/Telemetrie entfernt** – Alle `log_request`-Aufrufe aus bot.py entfernt, Worker-Bot Import deaktiviert (verursachte Connection-Errors)
+- **RAG-Sync-Status aus /status entfernt** – `sync_info` wird nicht mehr im Chat-Status angezeigt
+
 ## [0.24.2] - 2026-03-23
 ### Geaendert
 - **Twitter/X Anti-Spam Optimierung** 🐦
