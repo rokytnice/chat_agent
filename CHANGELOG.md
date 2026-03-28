@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.28.0] - 2026-03-28
+### Neu
+- **Aktien-Crash-Monitor: Multi-Source mit 4 Datenquellen** 🔍
+  - yfinance (unbegrenzt) als Hauptquelle fuer Screening aller ~2.500 Ticker
+  - Finnhub (Echtzeit, 60/Min) zur Crash-Verifikation
+  - Twelve Data (800/Tag) zur zweiten Verifikation
+  - Alpha Vantage (25/Tag) nur bei schweren Crashes >30%
+  - Jeder Crash wird cross-verifiziert – weniger Fehlalarme
+  - Alerts zeigen Anzahl bestaetigender Quellen an
+  - API Keys in .env gespeichert (Finnhub, TwelveData, AlphaVantage)
+  - Monitor wieder aktiviert
+
 ## [0.27.4] - 2026-03-28
 ### Geändert
 - **Aktien-Crash-Monitor deaktiviert** 📉

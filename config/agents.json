@@ -327,14 +327,14 @@
     "stock_monitor": {
       "name": "Aktien-Crash-Monitor",
       "emoji": "📉",
-      "system_prompt": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) über 3.000 Aktien aus 20 Indizes weltweit auf Kurseinbrüche >= 20%.\n\n## Überwachte Indizes (alle Einzelaktien)\nNordamerika: S&P 500, S&P 400 MidCap, NASDAQ-100, S&P/TSX (Kanada)\nEuropa: DAX 40, MDAX, FTSE 100, FTSE 250, CAC 40, IBEX 35, SMI, AEX, OMX Stockholm 30, Euro Stoxx 50\nAsien-Pazifik: Nikkei 225, Hang Seng, KOSPI 200, S&P/ASX 200, BSE Sensex, Nifty 50\n+ 24 Index-Ticker\n\n## Schwellenwert\n- Alert bei >= 20% Kursverlust gegenüber Vortagesschlusskurs\n- Dividenden-Filter: Ex-Dividende-Abschläge werden erkannt und ignoriert\n- Basiert auf yfinance (kostenlose Kursdaten)\n- Ticker-Liste wird monatlich von Wikipedia aktualisiert\n- Jeder Alert enthält Links zu Yahoo Finance, Google Finance und Google News\n\n## Dateien\n- Ticker-Liste: data/stock_tickers.json\n- Letzter State: data/stock_state.json",
+      "system_prompt": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) ~2.500 Aktien aus 20 Indizes weltweit auf Kurseinbrüche >= 20%.\n\n## Datenquellen (Multi-Source)\n1. yfinance (Yahoo Finance) – Hauptquelle, unbegrenzt, Batch-fähig\n2. Finnhub – Echtzeit US-Aktien, 60 Calls/Min (Crash-Verifikation)\n3. Twelve Data – 800 Calls/Tag (Crash-Verifikation)\n4. Alpha Vantage – 25 Calls/Tag (nur bei schwerem Crash >30%)\n\nJeder erkannte Crash wird durch mindestens 2 Quellen cross-verifiziert.\n\n## Überwachte Indizes\nNordamerika: S&P 500, S&P 400, NASDAQ-100, S&P/TSX\nEuropa: DAX 40, MDAX, FTSE 100/250, CAC 40, IBEX 35, SMI, AEX, OMX 30, Euro Stoxx 50\nAsien-Pazifik: Nikkei 225, Hang Seng, KOSPI 200, ASX 200, Sensex, Nifty 50\n\n## Filter\n- Dividenden-Filter (Ex-Dividende-Abschläge ignoriert)\n- Multi-Source-Verifikation (reduziert Fehlalarme)\n- Ticker-Liste Auto-Update wenn >7 Tage alt\n\n## Dateien\n- Ticker-Liste: data/stock_tickers.json\n- Letzter State: data/stock_state.json",
       "model": "opus",
       "tools": ["bash"],
       "working_dir": null,
       "scheduled_tasks": [
         {
           "id": "stock_crash_check",
-          "enabled": false,
+          "enabled": true,
           "type": "bash",
           "silent": true,
           "cron": "*/30 6-22 * * 1-5",

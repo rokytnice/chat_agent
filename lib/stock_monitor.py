@@ -13,6 +13,7 @@ Verwendung:
 """
 
 import json
+import os
 import sys
 import time
 import logging
@@ -36,6 +37,11 @@ BATCH_SIZE = 50
 DATA_DIR = Path(__file__).parent.parent / "data"
 STATE_FILE = DATA_DIR / "stock_state.json"
 TICKERS_FILE = DATA_DIR / "stock_tickers.json"
+
+# API Keys aus .env (optional – Fallback auf yfinance allein)
+FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY", "")
+TWELVEDATA_API_KEY = os.environ.get("TWELVEDATA_API_KEY", "")
+ALPHAVANTAGE_API_KEY = os.environ.get("ALPHAVANTAGE_API_KEY", "")
 
 # HTTP-Header für Wikipedia-Scraping
 HEADERS = {"User-Agent": "Mozilla/5.0 (StockMonitor/1.0; Python)"}
@@ -636,6 +642,141 @@ def _save_state(state: dict):
     STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False))
 
 
+# ------------------------------------------------------------------ #
+#  Multi-Source Verifikation                                           #
+# ------------------------------------------------------------------ #
+
+def _verify_finnhub(symbol: str) -> dict | None:
+    """Holt Echtzeit-Quote von Finnhub. Gibt {price, prev_close, change_pct} zurück."""
+    if not FINNHUB_API_KEY:
+        return None
+    try:
+        # Finnhub braucht saubere Symbole ohne Suffix für US-Aktien
+        fh_symbol = symbol.replace("-", ".")  # BRK-B → BRK.B
+        url = f"https://finnhub.io/api/v1/quote?symbol={fh_symbol}&token={FINNHUB_API_KEY}"
+        r = requests.get(url, timeout=5)
+        data = r.json()
+        if data.get("c", 0) == 0:
+            return None  # Kein Ergebnis
+        current = float(data["c"])
+        prev = float(data["pc"])
+        if prev == 0:
+            return None
+        change = ((current - prev) / prev) * 100
+        return {"price": current, "prev_close": prev, "change_pct": round(change, 2), "source": "finnhub"}
+    except Exception as e:
+        log.debug("Finnhub-Verify %s fehlgeschlagen: %s", symbol, e)
+        return None
+
+
+def _verify_twelvedata(symbol: str) -> dict | None:
+    """Holt Quote von Twelve Data. Gibt {price, prev_close, change_pct} zurück."""
+    if not TWELVEDATA_API_KEY:
+        return None
+    try:
+        td_symbol = symbol.split(".")[0] if "." in symbol else symbol
+        td_symbol = td_symbol.replace("^", "")
+        url = f"https://api.twelvedata.com/quote?symbol={td_symbol}&apikey={TWELVEDATA_API_KEY}"
+        r = requests.get(url, timeout=5)
+        data = r.json()
+        if "close" not in data or "previous_close" not in data:
+            return None
+        current = float(data["close"])
+        prev = float(data["previous_close"])
+        if prev == 0:
+            return None
+        change = ((current - prev) / prev) * 100
+        return {"price": current, "prev_close": prev, "change_pct": round(change, 2), "source": "twelvedata"}
+    except Exception as e:
+        log.debug("TwelveData-Verify %s fehlgeschlagen: %s", symbol, e)
+        return None
+
+
+def _verify_alphavantage(symbol: str) -> dict | None:
+    """Holt Quote von Alpha Vantage. Gibt {price, prev_close, change_pct} zurück."""
+    if not ALPHAVANTAGE_API_KEY:
+        return None
+    try:
+        av_symbol = symbol.split(".")[0] if "." in symbol else symbol
+        av_symbol = av_symbol.replace("^", "")
+        url = (
+            f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE"
+            f"&symbol={av_symbol}&apikey={ALPHAVANTAGE_API_KEY}"
+        )
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        quote = data.get("Global Quote", {})
+        if not quote:
+            return None
+        current = float(quote.get("05. price", 0))
+        prev = float(quote.get("08. previous close", 0))
+        if prev == 0:
+            return None
+        change = ((current - prev) / prev) * 100
+        return {"price": current, "prev_close": prev, "change_pct": round(change, 2), "source": "alphavantage"}
+    except Exception as e:
+        log.debug("AlphaVantage-Verify %s fehlgeschlagen: %s", symbol, e)
+        return None
+
+
+def verify_crash(symbol: str, yf_change_pct: float) -> dict:
+    """Cross-Check eines vermuteten Crashes über mehrere Quellen.
+
+    Strategie:
+    - Finnhub (Echtzeit, 60/Min) → immer prüfen
+    - Twelve Data (800/Tag) → prüfen wenn verfügbar
+    - Alpha Vantage (25/Tag) → nur bei schwerem Crash (<-30%)
+
+    Returns: {confirmed: bool, sources: [...], avg_change_pct: float}
+    """
+    sources = [{"source": "yfinance", "change_pct": yf_change_pct}]
+    changes = [yf_change_pct]
+
+    # Finnhub – immer prüfen (60/Min Limit ist großzügig)
+    fh = _verify_finnhub(symbol)
+    if fh:
+        sources.append(fh)
+        changes.append(fh["change_pct"])
+        time.sleep(0.1)  # Rate-Limit schonen
+
+    # Twelve Data – prüfen wenn Key da (800/Tag, bei 32 Checks = 25 Verifikationen pro Check)
+    td = _verify_twelvedata(symbol)
+    if td:
+        sources.append(td)
+        changes.append(td["change_pct"])
+        time.sleep(0.1)
+
+    # Alpha Vantage – nur bei schwerem Crash (25/Tag sparen)
+    if yf_change_pct <= -30.0:
+        av = _verify_alphavantage(symbol)
+        if av:
+            sources.append(av)
+            changes.append(av["change_pct"])
+
+    avg_change = sum(changes) / len(changes)
+
+    # Bestätigt wenn: Durchschnitt aller Quellen >= Schwelle
+    # UND mindestens 1 weitere Quelle den Crash sieht (nicht nur yfinance)
+    if len(sources) >= 2:
+        other_crashes = [s for s in sources if s["source"] != "yfinance" and s["change_pct"] <= CRASH_THRESHOLD]
+        confirmed = len(other_crashes) > 0
+    else:
+        # Nur yfinance verfügbar → durchlassen (besser false positive als verpassen)
+        confirmed = True
+
+    log.info(
+        "🔍 Crash-Verify %s: %d Quellen, Ø %.1f%%, bestätigt=%s",
+        symbol, len(sources), avg_change, confirmed,
+    )
+
+    return {
+        "confirmed": confirmed,
+        "sources": sources,
+        "avg_change_pct": round(avg_change, 2),
+        "source_count": len(sources),
+    }
+
+
 def _is_dividend_drop(symbol: str, prev_close: float, current_price: float) -> bool:
     """Prüft ob der Kursabfall durch eine Dividende erklärbar ist.
 
@@ -732,13 +873,24 @@ def check_markets() -> list[dict]:
                     if _is_dividend_drop(symbol, prev_close, current_price):
                         continue  # Dividenden-Abschlag, kein Crash
 
-                    alerts.append({
+                    # Multi-Source Verifikation: Cross-Check mit Finnhub, Twelve Data, Alpha Vantage
+                    verification = verify_crash(symbol, change_pct)
+                    if not verification["confirmed"]:
+                        log.info("⚠️ Crash %s (%.1f%%) NICHT bestätigt durch andere Quellen – übersprungen",
+                                 symbol, change_pct)
+                        continue
+
+                    # Bestätigter Crash → Alert mit Quellen-Info
+                    alert_data = {
                         "symbol": symbol,
                         "name": name,
                         "price": round(current_price, 2),
                         "prev_close": round(prev_close, 2),
-                        "change_pct": round(change_pct, 2),
-                    })
+                        "change_pct": round(verification["avg_change_pct"], 2),
+                        "sources": verification["sources"],
+                        "source_count": verification["source_count"],
+                    }
+                    alerts.append(alert_data)
 
             except Exception as e:
                 errors.append(f"{symbol}: {e}")
@@ -808,19 +960,35 @@ def format_alert(alerts: list[dict]) -> str:
     alerts_sorted = sorted(alerts, key=lambda a: a["change_pct"])
 
     for a in alerts_sorted:
+        # Quellen-Info aufbereiten
+        src_count = a.get("source_count", 1)
+        src_names = [s["source"] for s in a.get("sources", [{"source": "yfinance"}])]
+        src_tag = f"✅ {src_count} Quellen: {', '.join(src_names)}" if src_count > 1 else "⚠️ 1 Quelle"
+
         lines.append(
             f"📉 {a['name']} ({a['symbol']})\n"
             f"   Kurs: {a['price']} (Vortag: {a['prev_close']})\n"
             f"   Veränderung: {a['change_pct']:+.1f}%\n"
+            f"   {src_tag}\n"
             f"{_build_links(a['symbol'], a['name'])}"
         )
 
     # State laden für Gesamtstatistik
     state = _load_state()
     meta = state.get("_meta", {})
+    sources_active = []
+    if FINNHUB_API_KEY:
+        sources_active.append("Finnhub")
+    if TWELVEDATA_API_KEY:
+        sources_active.append("TwelveData")
+    if ALPHAVANTAGE_API_KEY:
+        sources_active.append("AlphaVantage")
+    sources_active.append("yfinance")
+
     lines.append(
         f"⏰ {datetime.now().strftime('%d.%m.%Y %H:%M')}\n"
-        f"📊 {meta.get('tickers_checked', '?')}/{meta.get('tickers_total', '?')} Ticker geprüft"
+        f"📊 {meta.get('tickers_checked', '?')}/{meta.get('tickers_total', '?')} Ticker geprüft\n"
+        f"🔍 Quellen: {', '.join(sources_active)}"
     )
     return "\n".join(lines)
 
