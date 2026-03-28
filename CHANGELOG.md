@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.26.3] - 2026-03-28
+### Verbessert
+- **Aktien-Crash-Monitor: Echte Firmennamen** 🏷️
+  - Fehlende Ticker-Namen (v.a. MDAX) werden via yfinance nachgeschlagen
+  - EVD.DE zeigt jetzt "CTS Eventim AG & Co. KGaA" statt nur "EVD"
+  - 50 Namen aufgeloest (Delivery Hero, Lufthansa, Carl Zeiss Meditec, etc.)
+
 ## [0.26.2] - 2026-03-28
 ### Verbessert
 - **Aktien-Crash-Monitor: Dividenden-Filter** 🛡️

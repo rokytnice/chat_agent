@@ -346,12 +346,27 @@ def update_ticker_list() -> dict[str, str]:
         time.sleep(1)  # Wikipedia nicht überlasten
 
     # Speichern
-    # Bereinigung: nan/leere Namen durch Symbol ersetzen
+    # Bereinigung: nan/leere Namen durch echte Firmennamen ersetzen
+    missing_names = []
     for symbol in list(all_tickers.keys()):
         name = all_tickers[symbol]
         if not name or name == "nan" or name == "NaN" or str(name) == "nan":
+            missing_names.append(symbol)
             clean = symbol.replace(".DE", "").replace(".L", "").replace(".T", "").replace(".HK", "")
             all_tickers[symbol] = clean
+
+    # Fehlende Namen via yfinance nachschlagen
+    if missing_names:
+        print(f"  🔍 {len(missing_names)} fehlende Namen via yfinance nachschlagen...")
+        for symbol in missing_names:
+            try:
+                info = yf.Ticker(symbol).info
+                long_name = info.get("longName") or info.get("shortName") or ""
+                if long_name:
+                    all_tickers[symbol] = long_name
+            except Exception:
+                pass
+            time.sleep(0.2)  # Rate-Limit
 
     data = {
         "tickers": all_tickers,
