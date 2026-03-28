@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T04:00:06.237101",
+  "last_updated": "2026-03-28T04:01:22.310382",
   "agents": [
     {
       "id": "assistant",
@@ -116,11 +116,11 @@
           "description": "Drive-Index täglich 4 Uhr",
           "cron": "0 4 * * *",
           "enabled": true,
-          "last_run": "2026-03-27T04:05:45.193903",
-          "last_status": "timeout",
-          "last_error": "Timeout nach 300s",
-          "last_duration_seconds": 300.0,
-          "run_count": 2
+          "last_run": "2026-03-28T04:01:22.309032",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 75.2,
+          "run_count": 3
         },
         {
           "id": "sync_conversations",
@@ -273,6 +273,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-28T04:01:22.309032",
+      "agent": "sync_drive",
+      "task": "sync_drive",
+      "status": "success",
+      "message": "OK (75.2s)"
+    },
+    {
       "timestamp": "2026-03-28T04:00:06.235449",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -341,13 +348,6 @@
       "task": "sync_calendar",
       "status": "success",
       "message": "OK (63.4s)"
-    },
-    {
-      "timestamp": "2026-03-27T04:05:45.193903",
-      "agent": "sync_drive",
-      "task": "sync_drive",
-      "status": "timeout",
-      "message": "Timeout nach 300s"
     },
     {
       "timestamp": "2026-03-22T03:06:18.077877",
