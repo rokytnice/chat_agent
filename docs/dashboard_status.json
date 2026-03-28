@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T12:00:51.289623",
+  "last_updated": "2026-03-28T12:30:16.903659",
   "agents": [
     {
       "id": "assistant",
@@ -23,11 +23,11 @@
           "silent": true,
           "timeout": 60,
           "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.chrome_manager health",
-          "last_run": "2026-03-28T12:00:46.207289",
+          "last_run": "2026-03-28T12:30:16.901114",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 489
+          "run_count": 490
         },
         {
           "id": "ustva_check",
@@ -366,8 +366,8 @@
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
-      "transcript_mb": 69.7,
-      "last_activity": "2026-03-28T12:00:49.597201"
+      "transcript_mb": 69.8,
+      "last_activity": "2026-03-28T12:30:13.166962"
     },
     {
       "agent_id": "mailcheck",
@@ -465,18 +465,18 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-28T12:30:16.901114",
+      "agent": "chrome_health",
+      "task": "chrome_health",
+      "status": "success",
+      "message": "OK (0.1s)"
+    },
+    {
       "timestamp": "2026-03-28T12:00:51.287958",
       "agent": "sync_conversations",
       "task": "sync_conversations",
       "status": "success",
       "message": "OK (4.3s)"
-    },
-    {
-      "timestamp": "2026-03-28T12:00:46.207289",
-      "agent": "chrome_health",
-      "task": "chrome_health",
-      "status": "success",
-      "message": "OK (0.1s)"
     },
     {
       "timestamp": "2026-03-28T10:24:46.691142",
@@ -564,6 +564,18 @@
     }
   ],
   "request_log": [
+    {
+      "id": null,
+      "timestamp": "2026-03-28T12:00:51.287958",
+      "agent_id": "datasync",
+      "agent_name": "Daten-Synchronizer",
+      "agent_emoji": "🔄",
+      "job_type": "bash",
+      "title": "Konversations-Sync alle 6 Stunden in RAG",
+      "status": "success",
+      "duration_seconds": 4.3,
+      "source": "scheduler"
+    },
     {
       "id": 8,
       "timestamp": "2026-03-28T12:00:50.488286",
@@ -925,6 +937,17 @@
       "source": "user"
     }
   ],
-  "current_jobs": [],
+  "current_jobs": [
+    {
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "title": "Bau mir für dieses Projekt einen git hook der sicherstellt d",
+      "job_type": "text",
+      "started": "2026-03-28T12:30:03.188451",
+      "elapsed_seconds": 0.0,
+      "source": "user"
+    }
+  ],
   "queued_jobs": []
 }
