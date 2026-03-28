@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T10:24:46.793594",
+  "last_updated": "2026-03-28T10:30:47.728711",
   "agents": [
     {
       "id": "assistant",
@@ -23,11 +23,11 @@
           "silent": true,
           "timeout": 60,
           "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.chrome_manager health",
-          "last_run": "2026-03-28T10:00:56.051105",
+          "last_run": "2026-03-28T10:30:47.726264",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 485
+          "run_count": 486
         },
         {
           "id": "ustva_check",
@@ -465,18 +465,18 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-28T10:30:47.726264",
+      "agent": "chrome_health",
+      "task": "chrome_health",
+      "status": "success",
+      "message": "OK (0.1s)"
+    },
+    {
       "timestamp": "2026-03-28T10:24:46.691142",
       "agent": "email_check",
       "task": "email_check",
       "status": "success",
       "message": "OK (48.1s)"
-    },
-    {
-      "timestamp": "2026-03-28T10:00:56.051105",
-      "agent": "chrome_health",
-      "task": "chrome_health",
-      "status": "success",
-      "message": "OK (0.1s)"
     },
     {
       "timestamp": "2026-03-28T08:30:45.953101",
@@ -564,6 +564,18 @@
     }
   ],
   "request_log": [
+    {
+      "id": null,
+      "timestamp": "2026-03-28T10:24:46.691142",
+      "agent_id": "mailcheck",
+      "agent_name": "E-Mail Wächter",
+      "agent_emoji": "📧",
+      "job_type": "claude",
+      "title": "E-Mail-Check alle 5 Stunden",
+      "status": "success",
+      "duration_seconds": 48.1,
+      "source": "scheduler"
+    },
     {
       "id": null,
       "timestamp": "2026-03-28T10:00:56.051105",
