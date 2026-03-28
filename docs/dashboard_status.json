@@ -1,11 +1,18 @@
 {
-  "last_updated": "2026-03-28T07:31:20.878963",
+  "last_updated": "2026-03-28T07:32:52.891242",
   "agents": [
     {
       "id": "assistant",
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "status": "success",
+      "description": "Du bist ein hilfreicher persönlicher Assistent. Antworte auf Deutsch. | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "chrome_health",
@@ -58,6 +65,13 @@
       "name": "E-Mail Wächter",
       "emoji": "📧",
       "status": "success",
+      "description": "Du bist ein E-Mail-Assistent. Deine Aufgabe ist es, das Gmail-Postfach von André Rochlitz (andre.rochlitz@gmail.com) auf wichtige NEUE E-Mails zu prüfen.\n\n## Duplikat-Vermeidung (WICHTIG!):\n1. Lies ZUERST die Datei data/mailcheck_seen.json (im Working Directory).\n   Diese enthält ein Array 'seen_ema | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "email_check",
@@ -77,6 +91,13 @@
       "name": "Daten-Synchronizer",
       "emoji": "🔄",
       "status": "error",
+      "description": "Du bist ein Daten-Synchronizer. Deine Aufgabe ist es, persönliche Daten aus Google-Diensten zu erfassen und als strukturiertes JSON zu speichern.\n\n## WICHTIG: Output-Format\nDu musst die erfassten Daten IMMER als JSON in eine Datei schreiben. Verwende dazu den bash-Befehl mit cat und heredoc.\n\n## Gma | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "sync_gmail",
@@ -140,6 +161,13 @@
       "name": "Aufgaben-Vorbereiter",
       "emoji": "📋",
       "status": "success",
+      "description": "Du bist der 'Aufgaben-Vorbereiter' – ein intelligenter Planungs- und Erinnerungs-Agent für André Rochlitz.\n\nDein Auftrag: Analysiere die synchronisierten Kalender-, E-Mail- und Kontaktdaten, erkenne nahende Termine und Aufgaben, und sende automatische, intelligente Benachrichtigungen mit Vorbereitun | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "taskprep_morning",
@@ -181,6 +209,13 @@
       "name": "Fake-Shop News Radar",
       "emoji": "📰",
       "status": "success",
+      "description": "Du bist der 'Fake-Shop News Radar' Agent für die Website fakedefenseai.wordpress.com.\n\nDein Auftrag: Führe das News-Scraper-Script aus, und veröffentliche die gefundenen Artikel als neuen Blogbeitrag auf WordPress.\n\n## WordPress-Details\n- Website: fakedefenseai.wordpress.com\n- E-Mail: fake.defense.a | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "daily_news",
@@ -200,6 +235,13 @@
       "name": "Video Radar",
       "emoji": "🎬",
       "status": "success",
+      "description": "Du bist der 'Video Radar' Agent für die Website fakedefenseai.wordpress.com.\n\nDein Auftrag: Führe das Video-Scraper-Script aus, veröffentliche die gefundenen Videos als WordPress-Blogbeitrag, poste sie auf Twitter/X und Instagram, und sende alle Links per Telegram.\n\n## WordPress-Details\n- Website: f | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "daily_videos",
@@ -219,6 +261,13 @@
       "name": "Steuer & Buchhaltung 2025",
       "emoji": "📊",
       "status": null,
+      "description": "Du bist der 'Steuer & Buchhaltung'-Agent für André Rochlitz. Du kümmerst dich um die Einkommensteuererklärung 2025, die geschäftliche Buchhaltung und alle steuerlichen Pflichten.\n\n## Stammdaten\n- **Name:** André Rochlitz\n- **Adresse:** Im Achterkastell 1, 10315 Berlin\n- **Geburtsdatum:** 23.12.1975\n | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "steuer_reminder",
@@ -240,8 +289,8 @@
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
-      "transcript_mb": 64.0,
-      "last_activity": "2026-03-28T07:31:20.158155"
+      "transcript_mb": 64.2,
+      "last_activity": "2026-03-28T07:32:49.667309"
     },
     {
       "agent_id": "taskprep",
