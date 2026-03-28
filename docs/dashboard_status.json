@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T07:36:38.937887",
+  "last_updated": "2026-03-28T07:38:50.953541",
   "agents": [
     {
       "id": "assistant",
@@ -289,8 +289,8 @@
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
-      "transcript_mb": 64.3,
-      "last_activity": "2026-03-28T07:36:37.906192"
+      "transcript_mb": 64.7,
+      "last_activity": "2026-03-28T07:38:47.552008"
     },
     {
       "agent_id": "taskprep",
@@ -487,5 +487,6 @@
     }
   ],
   "request_log": [],
-  "current_jobs": []
+  "current_jobs": [],
+  "queued_jobs": []
 }
