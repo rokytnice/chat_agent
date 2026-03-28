@@ -29,7 +29,7 @@
           "cron": "*/30 * * * *",
           "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.chrome_manager health",
           "timeout_seconds": 60,
-          "description": "Chrome Browser Health-Check alle 30 Min (Auto-Recovery)"
+          "description": "Chrome Deep-Health-Check alle 30 Min (ergänzend zum Watchdog)"
         },
         {
           "id": "daily_briefing",

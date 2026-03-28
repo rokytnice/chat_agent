@@ -467,8 +467,95 @@ class TaskScheduler:
         except Exception as e:
             log.warning("Reminder-Check fehlgeschlagen: %s", e)
 
+    async def _watchdog(self):
+        """Schnelle Systemprüfung bei jedem Zyklus (alle 60s).
+
+        Erkennt und behebt:
+        - Hängende Tasks (laufen >2x Timeout)
+        - Chrome/CDP nicht erreichbar → Auto-Restart
+        - Playwright MCP Server tot → Auto-Restart
+        """
+        issues = []
+
+        # 1. Hängende Tasks prüfen
+        now = datetime.now()
+        for task_id, info in list(self._running_tasks.items()):
+            started = info["started"]
+            elapsed = (now - started).total_seconds()
+            timeout = info["task_config"].get("timeout_seconds", 300)
+            # Task läuft >2x Timeout → wahrscheinlich gehangen
+            if elapsed > timeout * 2:
+                issues.append(f"⚠️ Task '{task_id}' hängt seit {int(elapsed)}s (Timeout: {timeout}s)")
+                log.error("🐕 Watchdog: Task '%s' hängt seit %ds – entferne aus Tracking",
+                          task_id, int(elapsed))
+                self._running_tasks.pop(task_id, None)
+                self._state.setdefault(task_id, {}).update({
+                    "last_run": now.isoformat(),
+                    "last_status": "watchdog_killed",
+                    "last_error": f"Watchdog: Task hing nach {int(elapsed)}s",
+                })
+                self._write_current_jobs()
+
+        # 2. Chrome/CDP Health-Check (nur wenn chrome_manager vorhanden)
+        try:
+            from lib.chrome_manager import is_cdp_alive, restart as chrome_restart
+            if not is_cdp_alive():
+                log.warning("🐕 Watchdog: Chrome CDP nicht erreichbar – Neustart")
+                chrome_restart()
+                if is_cdp_alive():
+                    issues.append("🔄 Chrome war tot → automatisch neugestartet ✅")
+                    log.info("🐕 Watchdog: Chrome erfolgreich neugestartet")
+                else:
+                    issues.append("❌ Chrome Neustart fehlgeschlagen!")
+                    log.error("🐕 Watchdog: Chrome Neustart fehlgeschlagen")
+        except ImportError:
+            pass
+        except Exception as e:
+            log.debug("Watchdog Chrome-Check: %s", e)
+
+        # 3. Playwright MCP Server Check
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["pgrep", "-f", "playwright.*mcp"],
+                capture_output=True, timeout=5,
+            )
+            if result.returncode != 0:
+                # Playwright MCP läuft nicht – versuche Neustart
+                log.warning("🐕 Watchdog: Playwright MCP Server nicht gefunden – Neustart")
+                mcp_cmd = "npx @anthropic-ai/mcp-playwright --port 3002"
+                subprocess.Popen(
+                    mcp_cmd, shell=True,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                await asyncio.sleep(3)
+                result2 = subprocess.run(
+                    ["pgrep", "-f", "playwright.*mcp"],
+                    capture_output=True, timeout=5,
+                )
+                if result2.returncode == 0:
+                    issues.append("🔄 Playwright MCP war tot → automatisch neugestartet ✅")
+                    log.info("🐕 Watchdog: Playwright MCP erfolgreich neugestartet")
+                else:
+                    issues.append("❌ Playwright MCP Neustart fehlgeschlagen!")
+                    log.error("🐕 Watchdog: Playwright MCP Neustart fehlgeschlagen")
+        except Exception as e:
+            log.debug("Watchdog Playwright-Check: %s", e)
+
+        # Bei Problemen → User informieren
+        if issues:
+            msg = "🐕 **Watchdog-Report**\n\n" + "\n".join(issues)
+            try:
+                await self.send_message(msg)
+            except Exception:
+                pass
+
     async def _run_cycle(self):
-        """Ein Scheduler-Zyklus: Erinnerungen prüfen, dann Agenten-Tasks ausführen."""
+        """Ein Scheduler-Zyklus: Watchdog, Erinnerungen, dann Agenten-Tasks."""
+        # Watchdog: Schnelle Systemprüfung (< 2s)
+        await self._watchdog()
+
         # Erinnerungen prüfen (kostet 0 Tokens)
         await self._check_reminders()
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.27.2] - 2026-03-28
+### Neu
+- **Watchdog: Automatische Problemerkennung alle 60 Sekunden** 🐕
+  - Erkennt haengende Tasks (>2x Timeout) und raeumt sie auf
+  - Chrome/CDP Health-Check bei jedem Zyklus – Auto-Restart bei Ausfall
+  - Playwright MCP Server Check – Auto-Restart wenn Prozess tot
+  - Sofortige Telegram-Benachrichtigung bei Problemen und Fixes
+  - Laueft im Scheduler-Zyklus (alle 60s), kein separater Prozess noetig
+
 ## [0.27.1] - 2026-03-28
 ### Verbessert
 - **Timeout-Handling: Zwischenstand statt Totalverlust** ⏱️
