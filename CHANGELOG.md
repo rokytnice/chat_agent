@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.25.2] - 2026-03-28
+### Hinzugefügt
+- **Info-Button pro Agent im Dashboard** ℹ️
+  - Jeder Agent hat jetzt einen kleinen "i"-Button neben dem Namen
+  - Klick oeffnet/schliesst ein Beschreibungs-Panel mit:
+    - System-Prompt (Rollenbeschreibung des Agenten)
+    - Modell-Badge (z.B. opus) in Lila
+    - Tool-Badges (claude, bash, playwright) in Gruen
+  - Animiertes Ein-/Ausklappen mit fadeIn-Effekt
+  - Button wechselt Farbe bei aktivem Panel
+
 ## [0.25.1] - 2026-03-28
 ### Hinzugefügt
 - **"Aktuell in Arbeit" Live-Anzeige im Dashboard** 🔄

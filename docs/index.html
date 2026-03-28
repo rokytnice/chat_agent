@@ -34,6 +34,19 @@
   .card-title { font-weight: 600; font-size: 1rem; }
   .card-title .emoji { margin-right: 0.5rem; }
 
+  /* Agent Info Button & Panel */
+  .info-btn { background: rgba(88,166,255,0.12); border: 1px solid rgba(88,166,255,0.3); color: var(--accent); width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; margin-left: 0.4rem; flex-shrink: 0; }
+  .info-btn:hover { background: rgba(88,166,255,0.25); border-color: var(--accent); transform: scale(1.1); }
+  .info-btn.active { background: var(--accent); color: var(--bg); }
+  .agent-desc { display: none; background: rgba(88,166,255,0.05); border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 0.85rem; margin-bottom: 0.75rem; font-size: 0.8rem; color: var(--dim); line-height: 1.5; animation: fadeIn 0.2s ease; }
+  .agent-desc.show { display: block; }
+  .agent-desc .desc-text { margin-bottom: 0.4rem; color: var(--text); }
+  .agent-desc .desc-meta { display: flex; gap: 0.75rem; flex-wrap: wrap; font-size: 0.72rem; }
+  .desc-tag { padding: 1px 7px; border-radius: 6px; font-size: 0.68rem; }
+  .desc-tag-tool { background: rgba(63,185,80,0.12); color: var(--green); }
+  .desc-tag-model { background: rgba(188,140,255,0.12); color: var(--purple); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
   .badge { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
   .badge-success { background: rgba(63,185,80,0.15); color: var(--green); }
   .badge-error { background: rgba(248,81,73,0.15); color: var(--red); }
@@ -271,6 +284,15 @@ function statusLabel(status) {
   return map[status.toLowerCase()] || status;
 }
 
+function toggleAgentInfo(id) {
+  const panel = document.getElementById('desc-' + id);
+  const btn = document.getElementById('btn-' + id);
+  if (panel) {
+    panel.classList.toggle('show');
+    btn.classList.toggle('active');
+  }
+}
+
 function renderAgents(agents) {
   const grid = document.getElementById('agents-grid');
   if (!agents || agents.length === 0) { grid.innerHTML = '<div class="loading">Keine Agenten</div>'; return; }
@@ -300,10 +322,19 @@ function renderAgents(agents) {
       return s;
     }, null);
 
+    // Description & tools/model tags
+    const descText = (a.description || '').split(' | ')[0] || '';
+    const toolTags = (a.tools || []).map(t => `<span class="desc-tag desc-tag-tool">${t}</span>`).join('');
+    const modelTag = a.model ? `<span class="desc-tag desc-tag-model">${a.model}</span>` : '';
+
     return `<div class="card">
       <div class="card-header">
-        <div class="card-title"><span class="emoji">${a.emoji || ''}</span>${a.name}</div>
+        <div class="card-title"><span class="emoji">${a.emoji || ''}</span>${a.name}<button class="info-btn" id="btn-${a.id}" onclick="toggleAgentInfo('${a.id}')" title="Info">i</button></div>
         <span class="badge ${badgeClass(overallStatus)}">${statusLabel(overallStatus)}</span>
+      </div>
+      <div class="agent-desc" id="desc-${a.id}">
+        <div class="desc-text">${descText}</div>
+        <div class="desc-meta">${modelTag}${toolTags}</div>
       </div>
       <ul class="task-list">${tasks || '<li class="task"><div class="task-meta">Keine Tasks</div></li>'}</ul>
     </div>`;

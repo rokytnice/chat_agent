@@ -65,11 +65,24 @@ def _build_agents(config, state):
         else:
             agent_status = None
 
+        # Build description from system_prompt + metadata
+        sp = agent_cfg.get("system_prompt", "")
+        desc_parts = [sp[:300]] if sp else []
+        tools = agent_cfg.get("tools", [])
+        model = agent_cfg.get("model", "")
+        if tools:
+            desc_parts.append(f"Tools: {', '.join(tools)}")
+        if model:
+            desc_parts.append(f"Modell: {model}")
+
         agents.append({
             "id": agent_id,
             "name": agent_cfg.get("name", agent_id),
             "emoji": agent_cfg.get("emoji", ""),
             "status": agent_status,
+            "description": " | ".join(desc_parts),
+            "tools": tools,
+            "model": model,
             "tasks": tasks,
         })
 
