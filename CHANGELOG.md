@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.25.0] - 2026-03-28
+### Behoben
+- **Cross-Session-Abgleich fuer Erinnerungen** 🔄
+  - Taskprep-Agent prueft jetzt VOR jedem Briefing Andrés Telegram-Nachrichten auf Status-Updates
+  - Doctolib-Termine werden live geprueft (nicht aus dem Gedaechtnis)
+  - Stornierte/erledigte/gescheiterte Termine werden NICHT mehr erinnert
+  - Gilt fuer: Morgen-Briefing, Precheck (alle 3h) und Abend-Review
+  - System-Prompt um Cross-Session-Regeln erweitert
+  - Verhaltensregeln in MEMORY.md aktualisiert
+
 ## [0.24.9] - 2026-03-27
 ### Hinzugefügt
 - **Aktien-Crash-Monitor** 📉
