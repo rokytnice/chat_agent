@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T07:40:19.074120",
+  "last_updated": "2026-03-28T07:44:28.669142",
   "agents": [
     {
       "id": "assistant",
@@ -58,21 +58,6 @@
           "last_error": null,
           "last_duration_seconds": null,
           "run_count": 0
-        },
-        {
-          "id": "stock_crash_monitor",
-          "description": "Aktien-Crash-Monitor alle 30 Min (Mo-Fr 6-22 Uhr)",
-          "cron": "*/30 6-22 * * 1-5",
-          "enabled": true,
-          "task_type": "bash",
-          "silent": true,
-          "timeout": 120,
-          "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
-          "last_run": "2026-03-27T22:30:06.224005",
-          "last_status": "success",
-          "last_error": null,
-          "last_duration_seconds": 1.4,
-          "run_count": 11
         }
       ]
     },
@@ -345,6 +330,34 @@
           "run_count": 0
         }
       ]
+    },
+    {
+      "id": "stock_monitor",
+      "name": "Aktien-Crash-Monitor",
+      "emoji": "📉",
+      "status": "success",
+      "description": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) die wichtigsten Aktienindizes und Einzelaktien auf Kurseinbrüche >= 20%.\n\n## Überwachte Märkte\n- 8 Indizes: S&P 500, Dow Jones, NASDAQ, DAX 40, Euro Stoxx 50, FTSE 100, Nikkei 225, Hang Seng\n- 10 US-Aktien: Apple, Micro | Tools: bash | Modell: opus",
+      "tools": [
+        "bash"
+      ],
+      "model": "opus",
+      "tasks": [
+        {
+          "id": "stock_crash_check",
+          "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr)",
+          "cron": "*/30 6-22 * * 1-5",
+          "enabled": true,
+          "task_type": "bash",
+          "silent": true,
+          "timeout": 120,
+          "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
+          "last_run": "2026-03-27T22:30:06.224005",
+          "last_status": "success",
+          "last_error": null,
+          "last_duration_seconds": 1.4,
+          "run_count": 11
+        }
+      ]
     }
   ],
   "sessions": [
@@ -353,8 +366,8 @@
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
-      "transcript_mb": 64.9,
-      "last_activity": "2026-03-28T07:40:16.022205"
+      "transcript_mb": 65.4,
+      "last_activity": "2026-03-28T07:44:24.552970"
     },
     {
       "agent_id": "taskprep",
@@ -502,8 +515,8 @@
     },
     {
       "timestamp": "2026-03-27T22:30:06.224005",
-      "agent": "stock_crash_monitor",
-      "task": "stock_crash_monitor",
+      "agent": "stock_crash_check",
+      "task": "stock_crash_check",
       "status": "success",
       "message": "OK (1.4s)"
     },
