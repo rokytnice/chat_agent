@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T07:32:52.891242",
+  "last_updated": "2026-03-28T07:36:18.806940",
   "agents": [
     {
       "id": "assistant",
@@ -290,7 +290,7 @@
       "emoji": "🤖",
       "session_id": "dbd18ba8",
       "transcript_mb": 64.2,
-      "last_activity": "2026-03-28T07:32:49.667309"
+      "last_activity": "2026-03-28T07:36:17.935375"
     },
     {
       "agent_id": "taskprep",
