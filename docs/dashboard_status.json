@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T07:27:59.523202",
+  "last_updated": "2026-03-28T07:30:00.272312",
   "agents": [
     {
       "id": "assistant",
@@ -12,11 +12,11 @@
           "description": "Chrome Browser Health-Check alle 30 Min (Auto-Recovery)",
           "cron": "*/30 * * * *",
           "enabled": true,
-          "last_run": "2026-03-28T07:00:23.776115",
+          "last_run": "2026-03-28T07:30:00.269976",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 479
+          "run_count": 480
         },
         {
           "id": "ustva_check",
@@ -234,72 +234,6 @@
       ]
     }
   ],
-  "sessions": [
-    {
-      "agent_id": "assistant",
-      "name": "Persönlicher Assistent",
-      "emoji": "🤖",
-      "session_id": "dbd18ba8",
-      "transcript_mb": 63.5,
-      "last_activity": "2026-03-28T07:27:59.040098"
-    },
-    {
-      "agent_id": "taskprep",
-      "name": "Aufgaben-Vorbereiter",
-      "emoji": "📋",
-      "session_id": "df9c5cbe",
-      "transcript_mb": 3.2,
-      "last_activity": "2026-03-28T07:01:58.468126"
-    },
-    {
-      "agent_id": "datasync",
-      "name": "Daten-Synchronizer",
-      "emoji": "🔄",
-      "session_id": "192479ea",
-      "transcript_mb": 2.8,
-      "last_activity": "2026-03-28T06:01:21.137052"
-    },
-    {
-      "agent_id": "mailcheck",
-      "name": "E-Mail Wächter",
-      "emoji": "📧",
-      "session_id": "82459734",
-      "transcript_mb": 3.8,
-      "last_activity": "2026-03-28T05:23:28.234572"
-    },
-    {
-      "agent_id": "videoradar",
-      "name": "Video Radar",
-      "emoji": "🎬",
-      "session_id": "aa190d7f",
-      "transcript_mb": 2.6,
-      "last_activity": "2026-03-27T22:14:58.663098"
-    },
-    {
-      "agent_id": "newsradar",
-      "name": "Fake-Shop News Radar",
-      "emoji": "📰",
-      "session_id": "7353cd28",
-      "transcript_mb": 2.8,
-      "last_activity": "2026-03-27T21:22:55.753990"
-    },
-    {
-      "agent_id": "researcher",
-      "name": "Web-Researcher",
-      "emoji": "🔍",
-      "session_id": "4d2a23fb",
-      "transcript_mb": 138.0,
-      "last_activity": "2026-03-02T07:27:06.049409"
-    },
-    {
-      "agent_id": "fakechecker",
-      "name": "Fake-Kanzlei Checker",
-      "emoji": "⚖️",
-      "session_id": "393759ea",
-      "transcript_mb": 0.2,
-      "last_activity": "2026-02-27T17:04:28.553115"
-    }
-  ],
   "retouren": {
     "pending_count": 3,
     "total_amount": 273.46000000000004,
@@ -339,18 +273,18 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-28T07:30:00.269976",
+      "agent": "chrome_health",
+      "task": "chrome_health",
+      "status": "success",
+      "message": "OK (0.1s)"
+    },
+    {
       "timestamp": "2026-03-28T07:01:58.683198",
       "agent": "taskprep_morning",
       "task": "taskprep_morning",
       "status": "success",
       "message": "OK (93.9s)"
-    },
-    {
-      "timestamp": "2026-03-28T07:00:23.776115",
-      "agent": "chrome_health",
-      "task": "chrome_health",
-      "status": "success",
-      "message": "OK (0.1s)"
     },
     {
       "timestamp": "2026-03-28T06:01:21.355433",
@@ -436,6 +370,5 @@
       "status": "timeout",
       "message": "Timeout nach 30s"
     }
-  ],
-  "request_log": []
+  ]
 }
