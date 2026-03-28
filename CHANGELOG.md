@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.3] - 2026-03-28
+### Hinzugefügt
+- **Warteschlange im Dashboard** ⏳
+  - Neuer Bereich "Warteschlange" direkt unter "Aktuell in Arbeit"
+  - Zeigt wartende Jobs mit Position (#1, #2, ...), Agent, Titel, Typ und Wartezeit
+  - Queue-Zaehler in der Stats-Bar (blau wenn Jobs aktiv, gruen wenn leer)
+  - Bot schreibt jetzt auch wartende Jobs in `data/current_jobs.json` (neues Format: running + queued)
+  - Scheduler und PipeQueue nutzen dasselbe File mit Source-Trennung
+
 ## [0.25.2] - 2026-03-28
 ### Hinzugefügt
 - **Info-Button pro Agent im Dashboard** ℹ️

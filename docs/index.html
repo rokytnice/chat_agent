@@ -119,6 +119,18 @@
   .cj-empty { color: var(--dim); font-size: 0.9rem; padding: 0.5rem; }
   .cj-empty .idle-dot { color: var(--green); }
 
+  /* Queue */
+  .queue-section { margin-top: 0.75rem; }
+  .queue-header { font-size: 0.8rem; color: var(--dim); margin-bottom: 0.5rem; font-weight: 500; }
+  .queue-list { display: flex; flex-direction: column; gap: 0.4rem; }
+  .queue-item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.85rem; display: flex; align-items: center; gap: 0.75rem; font-size: 0.82rem; }
+  .queue-item:hover { border-color: var(--orange); }
+  .qi-pos { color: var(--orange); font-weight: 700; min-width: 20px; font-size: 0.75rem; }
+  .qi-agent { min-width: 24px; text-align: center; }
+  .qi-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qi-type { padding: 1px 6px; border-radius: 6px; font-size: 0.68rem; background: rgba(210,153,34,0.12); color: var(--orange); }
+  .qi-wait { color: var(--dim); font-size: 0.72rem; white-space: nowrap; }
+
   /* Request Log */
   .request-log { max-height: 500px; overflow-y: auto; }
   .req-entry { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; display: flex; gap: 0.75rem; align-items: center; }
@@ -165,6 +177,7 @@
   <div class="stat"><div class="val" id="s-tasks">-</div><div class="lbl">Tasks aktiv</div></div>
   <div class="stat"><div class="val" id="s-runs">-</div><div class="lbl">Runs gesamt</div></div>
   <div class="stat"><div class="val" id="s-errors">-</div><div class="lbl">Errors</div></div>
+  <div class="stat"><div class="val" id="s-queue">-</div><div class="lbl">Queue</div></div>
   <div class="stat"><div class="val" id="s-sessions">-</div><div class="lbl">Sessions</div></div>
   <div class="stat"><div class="val" id="s-retouren">-</div><div class="lbl">Retouren offen</div></div>
 </div>
@@ -172,6 +185,10 @@
 <h2>🔄 Aktuell in Arbeit</h2>
 <div id="current-jobs" class="current-jobs">
   <div class="cj-empty"><span class="idle-dot">●</span> Alle Agenten im Leerlauf</div>
+</div>
+<div id="queue-section" class="queue-section" style="display:none;">
+  <div class="queue-header">⏳ Warteschlange</div>
+  <div id="queue-list" class="queue-list"></div>
 </div>
 
 <h2>Content &amp; Kanaele</h2>
@@ -432,6 +449,28 @@ function renderCurrentJobs(jobs) {
   }).join('');
 }
 
+function renderQueue(jobs) {
+  const section = document.getElementById('queue-section');
+  const list = document.getElementById('queue-list');
+  if (!jobs || jobs.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  list.innerHTML = jobs.map((j, i) => {
+    const enqueued = j.enqueued ? new Date(j.enqueued) : null;
+    const waitSecs = enqueued ? Math.round((Date.now() - enqueued.getTime()) / 1000) : 0;
+    const waitStr = waitSecs > 60 ? Math.round(waitSecs / 60) + 'min' : waitSecs + 's';
+    return `<div class="queue-item">
+      <span class="qi-pos">#${i + 1}</span>
+      <span class="qi-agent" title="${j.agent_name || ''}">${j.agent_emoji || '🤖'}</span>
+      <span class="qi-title">${j.title || 'Wartend...'}</span>
+      <span class="qi-type">${j.job_type || 'text'}</span>
+      <span class="qi-wait">wartet ${waitStr}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderRequests(requests) {
   const el = document.getElementById('request-log');
   if (!requests || requests.length === 0) { el.innerHTML = '<div class="loading">Noch keine Requests aufgezeichnet</div>'; return; }
@@ -485,10 +524,15 @@ function render(data) {
   document.getElementById('s-runs').textContent = totalRuns;
   document.getElementById('s-errors').textContent = errorTasks;
   document.getElementById('s-errors').style.color = errorTasks > 0 ? 'var(--red)' : 'var(--green)';
+  const queueCount = (data.queued_jobs || []).length;
+  const runningCount = (data.current_jobs || []).length;
+  document.getElementById('s-queue').textContent = runningCount + queueCount;
+  document.getElementById('s-queue').style.color = (runningCount + queueCount) > 0 ? 'var(--accent)' : 'var(--green)';
   document.getElementById('s-sessions').textContent = (data.sessions || []).length;
   document.getElementById('s-retouren').textContent = data.retouren?.pending_count || 0;
 
   renderCurrentJobs(data.current_jobs);
+  renderQueue(data.queued_jobs);
   renderAgents(agents);
   renderSessions(data.sessions);
   renderRetouren(data.retouren);

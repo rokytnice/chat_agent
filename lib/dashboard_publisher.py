@@ -182,9 +182,16 @@ def generate_status():
     state = _load_json(SCHEDULER_STATE)
     retouren = _load_json(RETOUREN_FILE)
 
-    current_jobs = _load_json(CURRENT_JOBS_FILE)
-    if not isinstance(current_jobs, list):
+    current_data = _load_json(CURRENT_JOBS_FILE)
+    if isinstance(current_data, dict):
+        current_jobs = current_data.get("running", [])
+        queued_jobs = current_data.get("queued", [])
+    elif isinstance(current_data, list):
+        current_jobs = current_data
+        queued_jobs = []
+    else:
         current_jobs = []
+        queued_jobs = []
 
     return {
         "last_updated": datetime.now().isoformat(),
@@ -194,6 +201,7 @@ def generate_status():
         "activity_log": _build_activity_log(state),
         "request_log": _build_request_log(),
         "current_jobs": current_jobs,
+        "queued_jobs": queued_jobs,
     }
 
 

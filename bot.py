@@ -80,15 +80,16 @@ ACTIVE_AGENT = {}  # Wird beim Start geladen
 CURRENT_JOBS_FILE = Path("data/current_jobs.json")
 
 
-def _write_current_jobs(current_jobs: dict):
-    """Write currently running jobs to data/current_jobs.json for dashboard."""
+def _write_current_jobs(current_jobs: dict, queues: dict = None):
+    """Write currently running + queued jobs to data/current_jobs.json for dashboard."""
     try:
-        jobs = []
+        data = {"running": [], "queued": []}
+        # Running jobs
         for agent_id, job in current_jobs.items():
             agent = job.get("agent", {})
             started = job.get("started")
             elapsed = round((datetime.now() - started).total_seconds(), 1) if started else 0
-            jobs.append({
+            data["running"].append({
                 "agent_id": agent.get("id", agent_id),
                 "agent_name": agent.get("name", agent_id),
                 "agent_emoji": agent.get("emoji", "🤖"),
@@ -98,7 +99,23 @@ def _write_current_jobs(current_jobs: dict):
                 "elapsed_seconds": elapsed,
                 "source": "user",
             })
-        CURRENT_JOBS_FILE.write_text(json.dumps(jobs, ensure_ascii=False, default=str))
+        # Queued jobs (waiting)
+        if queues:
+            for agent_id, q in queues.items():
+                for queued_job in list(q._queue):
+                    agent = queued_job.get("agent", {})
+                    enqueued = queued_job.get("enqueued")
+                    data["queued"].append({
+                        "id": queued_job.get("id", 0),
+                        "agent_id": agent.get("id", agent_id),
+                        "agent_name": agent.get("name", agent_id),
+                        "agent_emoji": agent.get("emoji", "🤖"),
+                        "title": queued_job.get("title", "")[:80],
+                        "job_type": queued_job.get("job_type", "text"),
+                        "enqueued": enqueued.isoformat() if enqueued else None,
+                        "source": "user",
+                    })
+        CURRENT_JOBS_FILE.write_text(json.dumps(data, ensure_ascii=False, default=str))
     except Exception:
         pass
 
@@ -170,7 +187,7 @@ class PipeQueue:
                 job["status"] = "🔄"
                 job["started"] = datetime.now()
                 self._add_history(job)
-                _write_current_jobs(self._current)
+                _write_current_jobs(self._current, self._queues)
 
                 try:
                     await self._execute_job(agent_id, job)
@@ -187,7 +204,7 @@ class PipeQueue:
                 finally:
                     self._persist_request(job)
                     self._current.pop(agent_id, None)
-                    _write_current_jobs(self._current)
+                    _write_current_jobs(self._current, self._queues)
                     self._queues[agent_id].task_done()
         finally:
             self._workers.pop(agent_id, None)

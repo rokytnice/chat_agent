@@ -380,21 +380,25 @@ class TaskScheduler:
     def _write_current_jobs(self):
         """Merge scheduler running tasks into data/current_jobs.json (additive with bot jobs)."""
         try:
-            # Read existing entries (from bot PipeQueue)
-            existing = []
+            # Read existing data (from bot PipeQueue) - new format with running/queued
+            data = {"running": [], "queued": []}
             if CURRENT_JOBS_FILE.exists():
                 try:
-                    existing = json.loads(CURRENT_JOBS_FILE.read_text())
+                    raw = json.loads(CURRENT_JOBS_FILE.read_text())
+                    if isinstance(raw, dict):
+                        data = raw
+                    elif isinstance(raw, list):
+                        data = {"running": raw, "queued": []}
                 except (json.JSONDecodeError, ValueError):
-                    existing = []
-            # Remove old scheduler entries, keep bot entries
-            existing = [j for j in existing if j.get("source") != "scheduler"]
-            # Add current scheduler tasks
+                    pass
+            # Remove old scheduler entries from running, keep bot entries
+            data["running"] = [j for j in data.get("running", []) if j.get("source") != "scheduler"]
+            # Add current scheduler tasks to running
             for task_id, info in self._running_tasks.items():
                 agent = info["agent"]
                 started = info["started"]
                 elapsed = round((datetime.now() - started).total_seconds(), 1)
-                existing.append({
+                data["running"].append({
                     "agent_id": agent.get("id", "?"),
                     "agent_name": agent.get("name", "?"),
                     "agent_emoji": agent.get("emoji", "🤖"),
@@ -404,7 +408,7 @@ class TaskScheduler:
                     "elapsed_seconds": elapsed,
                     "source": "scheduler",
                 })
-            CURRENT_JOBS_FILE.write_text(json.dumps(existing, ensure_ascii=False, default=str))
+            CURRENT_JOBS_FILE.write_text(json.dumps(data, ensure_ascii=False, default=str))
         except Exception as e:
             log.warning("Write current_jobs failed: %s", e)
 
