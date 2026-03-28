@@ -327,7 +327,7 @@
     "stock_monitor": {
       "name": "Aktien-Crash-Monitor",
       "emoji": "📉",
-      "system_prompt": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) die wichtigsten Aktienindizes und Einzelaktien auf Kurseinbrüche >= 20%.\n\n## Überwachte Märkte\n- 8 Indizes: S&P 500, Dow Jones, NASDAQ, DAX 40, Euro Stoxx 50, FTSE 100, Nikkei 225, Hang Seng\n- 10 US-Aktien: Apple, Microsoft, Amazon, Alphabet, Meta, Tesla, NVIDIA, JPMorgan, Johnson & Johnson, Visa\n- 10 EU-Aktien: SAP, ASML, LVMH, Siemens, Allianz, DHL Group, TotalEnergies, Schneider Electric, Air Liquide, Münchener Rück\n\n## Schwellenwert\n- Alert bei >= 20% Kursverlust gegenüber dem Vortagesschlusskurs\n- Basiert auf yfinance (kostenlose Echtzeit-Kursdaten)\n\n## State\n- Letzte Kurse: data/stock_state.json\n- Log: data/request_log.json",
+      "system_prompt": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) über 1.000 Aktien aus 8 großen Indizes auf Kurseinbrüche >= 20%.\n\n## Überwachte Indizes (alle Einzelaktien)\n- S&P 500 (~503 Aktien)\n- NASDAQ-100 (~101 Aktien)\n- DAX 40 (40 Aktien)\n- MDAX (50 Aktien)\n- FTSE 100 (100 Aktien)\n- Euro Stoxx 50 (50 Aktien)\n- Hang Seng (~85 Aktien)\n- Nikkei 225 (225 Aktien)\n- + 8 Index-Ticker selbst\n\n## Schwellenwert\n- Alert bei >= 20% Kursverlust gegenüber Vortagesschlusskurs\n- Basiert auf yfinance (kostenlose Kursdaten)\n- Ticker-Liste wird monatlich von Wikipedia aktualisiert\n\n## Dateien\n- Ticker-Liste: data/stock_tickers.json\n- Letzter State: data/stock_state.json",
       "model": "opus",
       "tools": ["bash"],
       "working_dir": null,
@@ -340,8 +340,19 @@
           "cron": "*/30 6-22 * * 1-5",
           "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
           "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
+          "timeout_seconds": 300,
+          "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr, ~1.000 Ticker)"
+        },
+        {
+          "id": "stock_ticker_update",
+          "enabled": true,
+          "type": "bash",
+          "silent": true,
+          "cron": "0 3 1 * *",
+          "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor --update",
+          "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor --update",
           "timeout_seconds": 120,
-          "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr)"
+          "description": "Ticker-Liste monatlich aktualisieren (1. des Monats, 3 Uhr)"
         }
       ]
     },

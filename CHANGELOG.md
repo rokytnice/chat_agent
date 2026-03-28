@@ -1,13 +1,20 @@
 # Changelog
 
-## [0.25.6] - 2026-03-28
+## [0.26.0] - 2026-03-28
 ### Geändert
-- **Aktien-Crash-Monitor als eigener Agent** 📉
-  - Von Task unter "Persoenlicher Assistent" zu eigenstaendigem Agent `stock_monitor` befördert
-  - Eigene Dashboard-Karte mit Emoji 📉, Info-Button und Beschreibung
-  - Beschreibung: Ueberwachte Maerkte (28 Ticker), Schwellenwert (20%), Datenquelle (yfinance)
-  - Scheduler-State migriert (stock_crash_monitor → stock_crash_check)
-  - Cronjob unveraendert: */30 6-22 * * 1-5 (Mo-Fr alle 30 Min)
+- **Aktien-Crash-Monitor: Komplettes Rewrite – ueberwacht jetzt ALLE Aktien** 📉
+  - Von 28 handverlesenen Tickern auf **~1.056 Aktien** aus 8 grossen Indizes erweitert
+  - Ticker-Listen werden automatisch von Wikipedia gescrapt:
+    - S&P 500 (503), NASDAQ-100 (101), DAX 40 (40), MDAX (50)
+    - FTSE 100 (100), Euro Stoxx 50 (50), Hang Seng (85), Nikkei 225 (225)
+    - Plus 8 Index-Ticker selbst
+  - Batch-Verarbeitung: 50 Ticker pro yfinance-Download, ~22 Batches
+  - Monatlicher Ticker-Update-Task (1. des Monats, 3 Uhr): `--update`
+  - Ticker-Liste in `data/stock_tickers.json` (wird bei fehlen automatisch erstellt)
+  - Timeout auf 300s erhoeht (fuer ~1.000 Ticker)
+  - Alerts nach Staerke sortiert (groesster Einbruch zuerst)
+  - Neue CLI-Optionen: `--update`, `--stats`, `--test`
+  - Eigenstaendiger Agent `stock_monitor` mit eigener Dashboard-Karte
 
 ## [0.25.5] - 2026-03-28
 ### Hinzugefügt

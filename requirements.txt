@@ -11,3 +11,4 @@ tweepy>=4.14.0
 praw>=7.7.0
 googlenewsdecoder
 yfinance>=1.2.0
+pandas>=2.0.0
