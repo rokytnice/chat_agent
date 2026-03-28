@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T09:00:04.225714",
+  "last_updated": "2026-03-28T09:30:54.578644",
   "agents": [
     {
       "id": "assistant",
@@ -23,11 +23,11 @@
           "silent": true,
           "timeout": 60,
           "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.chrome_manager health",
-          "last_run": "2026-03-28T09:00:04.223198",
+          "last_run": "2026-03-28T09:30:54.576418",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 483
+          "run_count": 484
         },
         {
           "id": "ustva_check",
@@ -336,7 +336,7 @@
       "name": "Aktien-Crash-Monitor",
       "emoji": "📉",
       "status": null,
-      "description": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) über 3.000 Aktien aus 20 Indizes weltweit auf Kurseinbrüche >= 20%.\n\n## Überwachte Indizes (alle Einzelaktien)\nNordamerika: S&P 500, S&P 400 MidCap, NASDAQ-100, S&P/TSX (Kanada)\nEuropa: DAX 40, MDAX, FTSE 100, FTSE 250, | Tools: bash | Modell: opus",
+      "description": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) ~2.500 Aktien aus 20 Indizes weltweit auf Kurseinbrüche >= 20%.\n\n## Datenquellen (Multi-Source)\n1. yfinance (Yahoo Finance) – Hauptquelle, unbegrenzt, Batch-fähig\n2. Finnhub – Echtzeit US-Aktien, 60 Calls/Min (Crash-Ver | Tools: bash | Modell: opus",
       "tools": [
         "bash"
       ],
@@ -366,8 +366,8 @@
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
-      "transcript_mb": 67.2,
-      "last_activity": "2026-03-28T08:59:59.369442"
+      "transcript_mb": 69.6,
+      "last_activity": "2026-03-28T09:29:14.055392"
     },
     {
       "agent_id": "datasync",
@@ -465,7 +465,7 @@
   },
   "activity_log": [
     {
-      "timestamp": "2026-03-28T09:00:04.223198",
+      "timestamp": "2026-03-28T09:30:54.576418",
       "agent": "chrome_health",
       "task": "chrome_health",
       "status": "success",
@@ -565,6 +565,126 @@
   ],
   "request_log": [
     {
+      "id": 2,
+      "timestamp": "2026-03-28T09:28:41.835485",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Werden alle Quellen verwendet die ich dir gegeben habe?",
+      "status": "success",
+      "duration_seconds": 11.2,
+      "source": "user"
+    },
+    {
+      "id": 1,
+      "timestamp": "2026-03-28T09:28:08.155981",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Wie weit bist du mit den Einrichten der Accounts für den Akt",
+      "status": "success",
+      "duration_seconds": 13.3,
+      "source": "user"
+    },
+    {
+      "id": 1,
+      "timestamp": "2026-03-28T09:22:24.246679",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Play white restart was ist der Fehler",
+      "status": "success",
+      "duration_seconds": 32.8,
+      "source": "user"
+    },
+    {
+      "id": 1,
+      "timestamp": "2026-03-28T09:15:46.129890",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Playbride MCP starte neu",
+      "status": "success",
+      "duration_seconds": 33.6,
+      "source": "user"
+    },
+    {
+      "id": 8,
+      "timestamp": "2026-03-28T09:12:04.766256",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Alpha Vantage 25 Anfragen / Tag Marktführer für Einsteiger; ",
+      "status": "success",
+      "duration_seconds": 289.8,
+      "source": "user"
+    },
+    {
+      "id": 7,
+      "timestamp": "2026-03-28T09:06:46.562184",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Alpha Vantage 25 Anfragen / Tag Marktführer für Einsteiger; ",
+      "status": "success",
+      "duration_seconds": 13.1,
+      "source": "user"
+    },
+    {
+      "id": 6,
+      "timestamp": "2026-03-28T09:05:02.749930",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Ich brauche Quellen die quasi live aktienkurse bereitstellen",
+      "status": "success",
+      "duration_seconds": 110.8,
+      "source": "user"
+    },
+    {
+      "id": 5,
+      "timestamp": "2026-03-28T09:01:33.536115",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Wie funktioniert der Crash Monitor Agent erkläre mir was",
+      "status": "success",
+      "duration_seconds": 11.8,
+      "source": "user"
+    },
+    {
+      "id": 4,
+      "timestamp": "2026-03-28T09:01:11.039473",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Ich brauche den stock ticker nicht",
+      "status": "success",
+      "duration_seconds": 30.0,
+      "source": "user"
+    },
+    {
+      "id": null,
+      "timestamp": "2026-03-28T09:00:04.223198",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "bash",
+      "title": "Chrome Deep-Health-Check alle 30 Min (ergänzend zum Watchdog)",
+      "status": "success",
+      "duration_seconds": 0.1,
+      "source": "scheduler"
+    },
+    {
       "id": 3,
       "timestamp": "2026-03-28T08:59:59.861467",
       "agent_id": "assistant",
@@ -601,6 +721,17 @@
       "source": "user"
     }
   ],
-  "current_jobs": [],
+  "current_jobs": [
+    {
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "title": "Kannst du mal einen testlauf machen",
+      "job_type": "text",
+      "started": "2026-03-28T09:28:55.187029",
+      "elapsed_seconds": 0.0,
+      "source": "user"
+    }
+  ],
   "queued_jobs": []
 }
