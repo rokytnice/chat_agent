@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.5] - 2026-03-28
+### Hinzugefügt
+- **Automatischer Retouren-Abgleich im Mailcheck** 💰
+  - E-Mail-Wächter prüft jetzt nach jedem Check auf Rückerstattungs-E-Mails
+  - Erkennt: Rückerstattung, Gutschrift, Erstattung, refund
+  - Aktualisiert automatisch ~/gdrive/5_Privat/retouren_tracking.json
+  - Setzt status auf "received", refund_date, refund_amount
+  - Meldet Rückerstattungen als WICHTIG an André per Telegram
+
 ## [0.25.4] - 2026-03-28
 ### Hinzugefügt
 - **Info-Buttons fuer einzelne Tasks im Dashboard** ℹ️
