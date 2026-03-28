@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.1] - 2026-03-28
+### Verbessert
+- **Timeout-Handling: Zwischenstand statt Totalverlust** ⏱️
+  - Timeout von 15 Min auf 60 Min erhoeht (praktisch kein Limit mehr)
+  - Streaming-Output: stdout wird zeilenweise gelesen statt am Ende komplett
+  - Bei Timeout wird der bisherige Zwischenstand an den User gesendet
+  - Kein verlorener Output mehr wenn Claude lange arbeitet
+
 ## [0.27.0] - 2026-03-28
 ### Erweitert
 - **Aktien-Crash-Monitor: 20 Indizes weltweit – ~2.546 Aktien** 🌍

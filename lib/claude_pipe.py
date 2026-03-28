@@ -34,7 +34,7 @@ RESPONSE_DIR.mkdir(exist_ok=True)
 MCP_CONFIG_FILE = WORKING_DIR / "config" / "mcp_config.json"
 
 # Timeouts
-CLAUDE_TIMEOUT = 600  # 10 Minuten max pro Aufruf
+CLAUDE_TIMEOUT = 3600  # 60 Minuten – praktisch kein Limit
 
 
 class ClaudePipe:
@@ -213,24 +213,55 @@ class ClaudePipe:
                 env=env,
             )
 
+            # Streaming: stdout zeilenweise lesen, damit bei Timeout
+            # der bisherige Output nicht verloren geht
+            output_lines: list[str] = []
+            stderr_lines: list[str] = []
+
+            async def _read_stdout():
+                while True:
+                    line = await proc.stdout.readline()
+                    if not line:
+                        break
+                    output_lines.append(line.decode())
+
+            async def _read_stderr():
+                while True:
+                    line = await proc.stderr.readline()
+                    if not line:
+                        break
+                    stderr_lines.append(line.decode())
+
+            async def _read_all():
+                await asyncio.gather(_read_stdout(), _read_stderr())
+                await proc.wait()
+
+            timed_out = False
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=CLAUDE_TIMEOUT
-                )
+                await asyncio.wait_for(_read_all(), timeout=CLAUDE_TIMEOUT)
             except asyncio.TimeoutError:
+                timed_out = True
                 proc.kill()
                 await proc.wait()
-                elapsed = (datetime.now() - start).total_seconds()
-                result["elapsed"] = elapsed
-                result["error"] = f"Timeout nach {int(elapsed)}s"
-                log.error("⏱️ Claude [%s] TIMEOUT nach %.0fs", agent_id, elapsed)
-                return result
+                log.error("⏱️ Claude [%s] TIMEOUT nach %.0fs (partial output: %d Zeilen)",
+                          agent_id, (datetime.now() - start).total_seconds(),
+                          len(output_lines))
 
             elapsed = (datetime.now() - start).total_seconds()
             result["elapsed"] = elapsed
 
-            output = stdout.decode().strip()
-            stderr_text = stderr.decode().strip()
+            output = "".join(output_lines).strip()
+            stderr_text = "".join(stderr_lines).strip()
+
+            # Bei Timeout: Zwischenstand liefern statt nur Fehlermeldung
+            if timed_out:
+                if output:
+                    result["output"] = output
+                    log.info("⏱️ Claude [%s] Timeout – liefere Zwischenstand (%d Zeichen)",
+                             agent_id, len(output))
+                else:
+                    result["error"] = f"Timeout nach {int(elapsed)}s (keine Ausgabe)"
+                    return result
 
             if proc.returncode != 0 and not output:
                 result["error"] = f"Exit Code {proc.returncode}: {stderr_text[:500]}"

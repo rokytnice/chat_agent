@@ -247,11 +247,18 @@ class PipeQueue:
                 chat_id=job["chat_id"],
             )
 
-            if result["error"]:
+            if result["error"] and not result.get("output"):
                 await message.reply_text(f"❌ {result['error']}")
                 return
 
-            output = result["output"]
+            output = result.get("output", "")
+
+            # Timeout mit Zwischenstand → beides senden
+            if result["error"] and output:
+                await message.reply_text(
+                    f"⏱️ Timeout – hier der bisherige Zwischenstand:"
+                )
+
             if not output.strip():
                 await message.reply_text("(keine Ausgabe)")
             else:
