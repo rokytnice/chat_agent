@@ -342,17 +342,6 @@
           "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
           "timeout_seconds": 300,
           "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr, ~1.000 Ticker)"
-        },
-        {
-          "id": "stock_ticker_update",
-          "enabled": true,
-          "type": "bash",
-          "silent": true,
-          "cron": "0 3 1 * *",
-          "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor --update",
-          "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor --update",
-          "timeout_seconds": 120,
-          "description": "Ticker-Liste monatlich aktualisieren (1. des Monats, 3 Uhr)"
         }
       ]
     },

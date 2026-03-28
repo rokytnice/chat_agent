@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.3] - 2026-03-28
+### Verbessert
+- **Aktien-Crash-Monitor: Separater Ticker-Update Task entfernt** 🧹
+  - Ticker-Liste aktualisiert sich jetzt automatisch wenn >7 Tage alt
+  - Kein extra Cron-Task mehr noetig – passiert beim normalen Crash-Check
+  - Fallback: Wenn Update fehlschlaegt, wird alte Liste weiterverwendet
+
 ## [0.27.2] - 2026-03-28
 ### Neu
 - **Watchdog: Automatische Problemerkennung alle 60 Sekunden** 🐕

@@ -581,13 +581,38 @@ def update_ticker_list() -> dict[str, str]:
     return all_tickers
 
 
+def _is_ticker_list_stale() -> bool:
+    """Prüft ob die Ticker-Liste älter als 7 Tage ist."""
+    if not TICKERS_FILE.exists():
+        return True
+    try:
+        data = json.loads(TICKERS_FILE.read_text())
+        updated = data.get("meta", {}).get("updated", "")
+        if not updated:
+            return True
+        last_update = datetime.fromisoformat(updated)
+        age_days = (datetime.now() - last_update).days
+        return age_days >= 7
+    except Exception:
+        return True
+
+
 def load_tickers() -> dict[str, str]:
-    """Lädt Ticker-Liste aus Datei. Falls nicht vorhanden, wird sie erstellt."""
+    """Lädt Ticker-Liste aus Datei. Aktualisiert automatisch wenn >7 Tage alt."""
     if TICKERS_FILE.exists():
         try:
             data = json.loads(TICKERS_FILE.read_text())
             tickers = data.get("tickers", {})
             if tickers:
+                # Auto-Update wenn Liste älter als 7 Tage
+                if _is_ticker_list_stale():
+                    log.info("📋 Ticker-Liste >7 Tage alt – Auto-Update")
+                    print("📋 Ticker-Liste >7 Tage alt – Auto-Update...")
+                    try:
+                        return update_ticker_list()
+                    except Exception as e:
+                        log.warning("Auto-Update fehlgeschlagen: %s – nutze alte Liste", e)
+                        return tickers
                 return tickers
         except (json.JSONDecodeError, KeyError):
             pass
