@@ -17,6 +17,7 @@ SESSIONS_FILE = PROJECT_DIR / "data" / "sessions.json"
 TRANSCRIPT_DIR = Path.home() / ".claude" / "projects" / "-home-aroc-projects-chat-agent"
 RETOUREN_FILE = Path.home() / "gdrive" / "5_Privat" / "retouren_tracking.json"
 REQUEST_LOG_FILE = PROJECT_DIR / "data" / "request_log.json"
+CURRENT_JOBS_FILE = PROJECT_DIR / "data" / "current_jobs.json"
 HASH_FILE = PROJECT_DIR / "data" / "dashboard_hash.txt"
 MIN_PUSH_INTERVAL = 300  # 5 minutes
 
@@ -168,6 +169,10 @@ def generate_status():
     state = _load_json(SCHEDULER_STATE)
     retouren = _load_json(RETOUREN_FILE)
 
+    current_jobs = _load_json(CURRENT_JOBS_FILE)
+    if not isinstance(current_jobs, list):
+        current_jobs = []
+
     return {
         "last_updated": datetime.now().isoformat(),
         "agents": _build_agents(config, state),
@@ -175,6 +180,7 @@ def generate_status():
         "retouren": _build_retouren(retouren),
         "activity_log": _build_activity_log(state),
         "request_log": _build_request_log(),
+        "current_jobs": current_jobs,
     }
 
 

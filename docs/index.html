@@ -91,6 +91,21 @@
   .session-bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 0.5rem; overflow: hidden; }
   .session-bar-fill { height: 100%; border-radius: 2px; background: var(--purple); transition: width 0.3s; }
 
+  /* Current Jobs */
+  .current-jobs { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .current-job { background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(188,140,255,0.08)); border: 1px solid var(--accent); border-radius: 10px; padding: 0.85rem 1rem; flex: 1; min-width: 280px; position: relative; overflow: hidden; }
+  .current-job::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), var(--purple), transparent); animation: jobScan 2s infinite; }
+  @keyframes jobScan { 0% { left: -100%; } 100% { left: 100%; } }
+  .cj-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+  .cj-agent { font-weight: 600; font-size: 0.95rem; }
+  .cj-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: rgba(88,166,255,0.15); color: var(--accent); animation: pulse 2s infinite; }
+  .cj-title { font-size: 0.85rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.3rem; }
+  .cj-meta { display: flex; gap: 1rem; font-size: 0.75rem; color: var(--dim); }
+  .cj-elapsed { color: var(--accent); font-weight: 600; }
+  .cj-type { padding: 1px 6px; border-radius: 6px; font-size: 0.68rem; background: rgba(88,166,255,0.1); color: var(--accent); }
+  .cj-empty { color: var(--dim); font-size: 0.9rem; padding: 0.5rem; }
+  .cj-empty .idle-dot { color: var(--green); }
+
   /* Request Log */
   .request-log { max-height: 500px; overflow-y: auto; }
   .req-entry { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; display: flex; gap: 0.75rem; align-items: center; }
@@ -139,6 +154,11 @@
   <div class="stat"><div class="val" id="s-errors">-</div><div class="lbl">Errors</div></div>
   <div class="stat"><div class="val" id="s-sessions">-</div><div class="lbl">Sessions</div></div>
   <div class="stat"><div class="val" id="s-retouren">-</div><div class="lbl">Retouren offen</div></div>
+</div>
+
+<h2>🔄 Aktuell in Arbeit</h2>
+<div id="current-jobs" class="current-jobs">
+  <div class="cj-empty"><span class="idle-dot">●</span> Alle Agenten im Leerlauf</div>
 </div>
 
 <h2>Content &amp; Kanaele</h2>
@@ -352,6 +372,35 @@ function renderSessions(sessions) {
   }).join('');
 }
 
+function renderCurrentJobs(jobs) {
+  const el = document.getElementById('current-jobs');
+  if (!jobs || jobs.length === 0) {
+    el.innerHTML = '<div class="cj-empty"><span class="idle-dot">●</span> Alle Agenten im Leerlauf</div>';
+    return;
+  }
+
+  el.innerHTML = jobs.map(j => {
+    const started = j.started ? new Date(j.started) : null;
+    const elapsed = started ? Math.round((Date.now() - started.getTime()) / 1000) : (j.elapsed_seconds || 0);
+    const mins = Math.floor(elapsed / 60);
+    const secs = elapsed % 60;
+    const elapsedStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+    const srcIcon = j.source === 'scheduler' ? '⏰' : '💬';
+    return `<div class="current-job">
+      <div class="cj-header">
+        <span class="cj-agent">${j.agent_emoji || '🤖'} ${j.agent_name || j.agent_id}</span>
+        <span class="cj-badge">▶ Laeuft</span>
+      </div>
+      <div class="cj-title">${j.title || 'Verarbeitung...'}</div>
+      <div class="cj-meta">
+        <span class="cj-elapsed">⏱ ${elapsedStr}</span>
+        <span class="cj-type">${j.job_type || 'text'}</span>
+        <span>${srcIcon} ${j.source === 'scheduler' ? 'Scheduler' : 'User-Request'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function renderRequests(requests) {
   const el = document.getElementById('request-log');
   if (!requests || requests.length === 0) { el.innerHTML = '<div class="loading">Noch keine Requests aufgezeichnet</div>'; return; }
@@ -408,6 +457,7 @@ function render(data) {
   document.getElementById('s-sessions').textContent = (data.sessions || []).length;
   document.getElementById('s-retouren').textContent = data.retouren?.pending_count || 0;
 
+  renderCurrentJobs(data.current_jobs);
   renderAgents(agents);
   renderSessions(data.sessions);
   renderRetouren(data.retouren);

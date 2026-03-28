@@ -2,6 +2,13 @@
 
 ## [0.25.1] - 2026-03-28
 ### Hinzugefügt
+- **"Aktuell in Arbeit" Live-Anzeige im Dashboard** 🔄
+  - Neuer prominenter Bereich oben im Dashboard zeigt laufende Jobs in Echtzeit
+  - Animierter Scan-Balken und Puls-Badge fuer aktive Jobs
+  - Zeigt Agent, Aufgabentitel, Laufzeit, Job-Typ und Quelle (User/Scheduler)
+  - Persistente Datei `data/current_jobs.json` wird bei Job-Start/-Ende aktualisiert
+  - Sowohl PipeQueue (User-Requests) als auch Scheduler-Tasks werden getrackt
+  - Bei Leerlauf: "Alle Agenten im Leerlauf" mit gruenem Idle-Dot
 - **Request-Log im Dashboard** 📋
   - Neuer Bereich "Request-Log" ganz unten auf dem Dashboard
   - Zeigt alle Anfragen an Agenten: User-Requests (💬) und Scheduler-Tasks (⏰)

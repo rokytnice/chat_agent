@@ -77,6 +77,32 @@ AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
 ACTIVE_AGENT = {}  # Wird beim Start geladen
 
 # --- Claude Pipe (persistente Session + Queue) ---
+CURRENT_JOBS_FILE = Path("data/current_jobs.json")
+
+
+def _write_current_jobs(current_jobs: dict):
+    """Write currently running jobs to data/current_jobs.json for dashboard."""
+    try:
+        jobs = []
+        for agent_id, job in current_jobs.items():
+            agent = job.get("agent", {})
+            started = job.get("started")
+            elapsed = round((datetime.now() - started).total_seconds(), 1) if started else 0
+            jobs.append({
+                "agent_id": agent.get("id", agent_id),
+                "agent_name": agent.get("name", agent_id),
+                "agent_emoji": agent.get("emoji", "🤖"),
+                "title": job.get("title", "")[:80],
+                "job_type": job.get("job_type", "text"),
+                "started": started.isoformat() if started else None,
+                "elapsed_seconds": elapsed,
+                "source": "user",
+            })
+        CURRENT_JOBS_FILE.write_text(json.dumps(jobs, ensure_ascii=False, default=str))
+    except Exception:
+        pass
+
+
 class PipeQueue:
     """Warteschlange die ClaudePipe für die Ausführung nutzt.
 
@@ -144,6 +170,7 @@ class PipeQueue:
                 job["status"] = "🔄"
                 job["started"] = datetime.now()
                 self._add_history(job)
+                _write_current_jobs(self._current)
 
                 try:
                     await self._execute_job(agent_id, job)
@@ -160,6 +187,7 @@ class PipeQueue:
                 finally:
                     self._persist_request(job)
                     self._current.pop(agent_id, None)
+                    _write_current_jobs(self._current)
                     self._queues[agent_id].task_done()
         finally:
             self._workers.pop(agent_id, None)

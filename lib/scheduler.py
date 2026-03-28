@@ -21,6 +21,7 @@ log = logging.getLogger("telegram_bridge.scheduler")
 WORKING_DIR = Path(__file__).parent.parent
 AGENTS_FILE = WORKING_DIR / "config" / "agents.json"
 STATE_FILE = WORKING_DIR / "data" / "scheduler_state.json"
+CURRENT_JOBS_FILE = WORKING_DIR / "data" / "current_jobs.json"
 
 # Prüf-Intervall in Sekunden (wie oft der Scheduler nach fälligen Tasks schaut)
 CHECK_INTERVAL = 60
@@ -43,6 +44,7 @@ class TaskScheduler:
         self.send_message = send_message_fn
         self._task: Optional[asyncio.Task] = None
         self._state: dict = {}
+        self._running_tasks: dict = {}  # task_id -> {agent, task_config, started}
 
     # ------------------------------------------------------------------ #
     #  Config & State I/O                                                  #
@@ -188,6 +190,10 @@ class TaskScheduler:
         )
 
         start = datetime.now()
+        self._running_tasks[task_id] = {
+            "agent": agent, "task_config": task_config, "started": start
+        }
+        self._write_current_jobs()
 
         # Intervall für Zwischenstand-Meldungen (Sekunden)
         progress_interval = task_config.get("progress_interval", 120)
@@ -366,8 +372,41 @@ class TaskScheduler:
             })
 
         finally:
+            self._running_tasks.pop(task_id, None)
+            self._write_current_jobs()
             self._save_state()
             self._persist_scheduler_request(task_id, task_config, agent, start)
+
+    def _write_current_jobs(self):
+        """Merge scheduler running tasks into data/current_jobs.json (additive with bot jobs)."""
+        try:
+            # Read existing entries (from bot PipeQueue)
+            existing = []
+            if CURRENT_JOBS_FILE.exists():
+                try:
+                    existing = json.loads(CURRENT_JOBS_FILE.read_text())
+                except (json.JSONDecodeError, ValueError):
+                    existing = []
+            # Remove old scheduler entries, keep bot entries
+            existing = [j for j in existing if j.get("source") != "scheduler"]
+            # Add current scheduler tasks
+            for task_id, info in self._running_tasks.items():
+                agent = info["agent"]
+                started = info["started"]
+                elapsed = round((datetime.now() - started).total_seconds(), 1)
+                existing.append({
+                    "agent_id": agent.get("id", "?"),
+                    "agent_name": agent.get("name", "?"),
+                    "agent_emoji": agent.get("emoji", "🤖"),
+                    "title": info["task_config"].get("description", task_id)[:80],
+                    "job_type": info["task_config"].get("type", "claude"),
+                    "started": started.isoformat(),
+                    "elapsed_seconds": elapsed,
+                    "source": "scheduler",
+                })
+            CURRENT_JOBS_FILE.write_text(json.dumps(existing, ensure_ascii=False, default=str))
+        except Exception as e:
+            log.warning("Write current_jobs failed: %s", e)
 
     def _persist_scheduler_request(self, task_id, task_config, agent, start):
         """Append scheduler task execution to data/request_log.json."""
