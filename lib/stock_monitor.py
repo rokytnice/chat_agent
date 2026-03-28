@@ -484,8 +484,41 @@ def check_markets() -> list[dict]:
     return alerts
 
 
+def _build_links(symbol: str, name: str) -> str:
+    """Baut Quell-Links für einen Ticker zusammen."""
+    # Yahoo Finance URL (Hauptquelle)
+    yahoo_sym = symbol.replace("^", "%5E")
+    yahoo = f"https://finance.yahoo.com/quote/{yahoo_sym}/"
+
+    # Google Finance URL
+    # Konvertierung: AAPL → NASDAQ:AAPL, SAP.DE → FRA:SAP, 0005.HK → HKG:0005
+    if symbol.endswith(".DE"):
+        gf_sym = f"FRA:{symbol.replace('.DE', '')}"
+    elif symbol.endswith(".L"):
+        gf_sym = f"LON:{symbol.replace('.L', '')}"
+    elif symbol.endswith(".T"):
+        gf_sym = f"TYO:{symbol.replace('.T', '')}"
+    elif symbol.endswith(".HK"):
+        gf_sym = f"HKG:{symbol.replace('.HK', '')}"
+    elif symbol.startswith("^"):
+        gf_sym = symbol  # Indizes nicht auf Google Finance
+    else:
+        gf_sym = f"NASDAQ:{symbol}"
+    google = f"https://www.google.com/finance/quote/{gf_sym}" if not symbol.startswith("^") else None
+
+    # Google News Suche
+    search_term = name.replace(" ", "+")
+    news = f"https://news.google.com/search?q={search_term}+Aktie&hl=de"
+
+    links = f"   📎 Yahoo: {yahoo}\n"
+    if google:
+        links += f"   📎 Google: {google}\n"
+    links += f"   📎 News: {news}\n"
+    return links
+
+
 def format_alert(alerts: list[dict]) -> str:
-    """Formatiert Alerts als Telegram-Nachricht."""
+    """Formatiert Alerts als Telegram-Nachricht mit Quell-Links."""
     if not alerts:
         return ""
 
@@ -499,6 +532,7 @@ def format_alert(alerts: list[dict]) -> str:
             f"📉 {a['name']} ({a['symbol']})\n"
             f"   Kurs: {a['price']} (Vortag: {a['prev_close']})\n"
             f"   Veränderung: {a['change_pct']:+.1f}%\n"
+            f"{_build_links(a['symbol'], a['name'])}"
         )
 
     # State laden für Gesamtstatistik

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.26.1] - 2026-03-28
+### Verbessert
+- **Aktien-Crash-Monitor: Quell-Links in Alerts** 📎
+  - Jeder Alert enthaelt jetzt klickbare Links zu:
+    - Yahoo Finance (Kurs-Chart, Details)
+    - Google Finance (alternative Ansicht)
+    - Google News (aktuelle Nachrichten zur Aktie, deutsch)
+  - Links sind boersenspezifisch: .DE→FRA:, .L→LON:, .T→TYO:, .HK→HKG:
+
 ## [0.26.0] - 2026-03-28
 ### Geändert
 - **Aktien-Crash-Monitor: Komplettes Rewrite – ueberwacht jetzt ALLE Aktien** 📉
