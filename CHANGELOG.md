@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.27.0] - 2026-03-28
+### Erweitert
+- **Aktien-Crash-Monitor: 20 Indizes weltweit – ~2.546 Aktien** 🌍
+  - Von 8 auf 20 Indizes erweitert (alle grossen Boersen abgedeckt)
+  - Neue Indizes: CAC 40, IBEX 35, SMI, AEX, OMX Stockholm 30 (Europa)
+  - Neue Indizes: KOSPI 200, ASX 200, BSE Sensex, Nifty 50 (Asien-Pazifik)
+  - Neue Indizes: S&P 400 MidCap, S&P/TSX Composite (Nordamerika)
+  - Neue Indizes: FTSE 250 (UK Mid Caps)
+  - 24 Index-Ticker (vorher 8) werden zusaetzlich ueberwacht
+  - Generischer Wikipedia-Scraper fuer einfache Erweiterung
+  - Agent-Beschreibung im Dashboard aktualisiert
+
 ## [0.26.3] - 2026-03-28
 ### Verbessert
 - **Aktien-Crash-Monitor: Echte Firmennamen** 🏷️

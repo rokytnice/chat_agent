@@ -42,14 +42,34 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (StockMonitor/1.0; Python)"}
 
 # Indizes die immer überwacht werden
 INDEX_TICKERS = {
+    # Nordamerika
     "^GSPC": "S&P 500",
     "^DJI": "Dow Jones",
     "^IXIC": "NASDAQ Composite",
+    "^SP400": "S&P 400 MidCap",
+    "^GSPTSE": "S&P/TSX Composite (Kanada)",
+    # Europa
     "^GDAXI": "DAX 40",
+    "^SDAXI": "SDAX",
     "^STOXX50E": "Euro Stoxx 50",
+    "^STOXX": "STOXX Europe 600",
     "^FTSE": "FTSE 100",
+    "^FTMC": "FTSE 250",
+    "^FCHI": "CAC 40",
+    "^IBEX": "IBEX 35",
+    "^SSMI": "SMI",
+    "^AEX": "AEX",
+    "^OMX": "OMX Stockholm 30",
+    # Asien-Pazifik
     "^N225": "Nikkei 225",
     "^HSI": "Hang Seng",
+    "^KS11": "KOSPI",
+    "^AXJO": "S&P/ASX 200",
+    "^BSESN": "BSE Sensex",
+    "^NSEI": "Nifty 50",
+    "^TWII": "TWSE (Taiwan)",
+    # Lateinamerika
+    "^BVSP": "Bovespa (Brasilien)",
 }
 
 # ------------------------------------------------------------------ #
@@ -314,6 +334,171 @@ def fetch_nikkei225() -> dict[str, str]:
     return result
 
 
+def _fetch_generic_index(url: str, index_name: str, suffix: str = "",
+                         min_rows: int = 15) -> dict[str, str]:
+    """Generischer Fetcher für Wikipedia-Index-Tabellen mit Ticker-Spalte.
+
+    Sucht nach Tabellen mit 'ticker', 'symbol' oder 'code' Spalte.
+    Hängt ggf. einen Exchange-Suffix an (.PA, .MC, .SW, etc.).
+    """
+    tables = _fetch_table(url)
+    if not tables:
+        return {}
+    for df in tables:
+        cols = [str(c).lower() for c in df.columns]
+        ticker_idx = None
+        for c in ["ticker", "symbol", "code", "ticker symbol"]:
+            if c in cols:
+                ticker_idx = cols.index(c)
+                break
+        if ticker_idx is None:
+            continue
+        ticker_col = df.columns[ticker_idx]
+        name_col = None
+        for c in ["company", "name", "security", "constituent"]:
+            if c in cols:
+                name_col = df.columns[cols.index(c)]
+                break
+        if name_col is None:
+            # Erste Spalte die nicht der Ticker ist
+            for i, c in enumerate(df.columns):
+                if i != ticker_idx:
+                    name_col = c
+                    break
+        if name_col is None:
+            name_col = ticker_col
+        result = {}
+        for _, row in df.iterrows():
+            symbol = str(row[ticker_col]).strip()
+            name = str(row[name_col]).strip()
+            if not symbol or symbol == "nan" or len(symbol) > 20:
+                continue
+            # Suffix nur anhängen wenn noch keiner dran ist
+            if suffix and not any(symbol.endswith(s) for s in [".DE",".L",".PA",".MC",".SW",".AS",".ST",".AX",".TO",".KS",".BO",".NS",".SA",".TW",".HK",".T"]):
+                symbol = symbol + suffix
+            result[symbol] = name
+        if len(result) >= min_rows:
+            log.info("%s: %d Ticker geladen", index_name, len(result))
+            return result
+    return {}
+
+
+def fetch_cac40() -> dict[str, str]:
+    """CAC 40 (Frankreich)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/CAC_40", "CAC 40", ".PA")
+
+
+def fetch_ibex35() -> dict[str, str]:
+    """IBEX 35 (Spanien)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/IBEX_35", "IBEX 35", ".MC")
+
+
+def fetch_smi() -> dict[str, str]:
+    """SMI (Schweiz)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/Swiss_Market_Index", "SMI", ".SW")
+
+
+def fetch_aex() -> dict[str, str]:
+    """AEX (Niederlande)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/AEX_index", "AEX", ".AS")
+
+
+def fetch_omx30() -> dict[str, str]:
+    """OMX Stockholm 30 (Schweden)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/OMX_Stockholm_30", "OMX Stockholm 30", ".ST")
+
+
+def fetch_sensex() -> dict[str, str]:
+    """BSE Sensex (Indien)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/BSE_SENSEX", "BSE Sensex", ".BO")
+
+
+def fetch_nifty50() -> dict[str, str]:
+    """Nifty 50 (Indien)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/NIFTY_50", "Nifty 50", ".NS")
+
+
+def fetch_ftse250() -> dict[str, str]:
+    """FTSE 250 (UK Mid Caps)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/FTSE_250_Index", "FTSE 250", ".L")
+
+
+def fetch_sp400() -> dict[str, str]:
+    """S&P 400 MidCap (US Mid Caps)."""
+    tables = _fetch_table("https://en.wikipedia.org/wiki/List_of_S%26P_400_companies")
+    if not tables:
+        return {}
+    df = tables[0]
+    result = {}
+    for _, row in df.iterrows():
+        symbol = str(row.get("Symbol", "")).strip().replace(".", "-")
+        name = str(row.get("Security", row.get("Company", ""))).strip()
+        if symbol and name and len(symbol) < 10:
+            result[symbol] = name
+    if result:
+        log.info("S&P 400 MidCap: %d Ticker geladen", len(result))
+    return result
+
+
+def fetch_asx200() -> dict[str, str]:
+    """S&P/ASX 200 (Australien)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/S%26P/ASX_200", "S&P/ASX 200", ".AX")
+
+
+def fetch_tsx() -> dict[str, str]:
+    """S&P/TSX Composite (Kanada)."""
+    return _fetch_generic_index(
+        "https://en.wikipedia.org/wiki/S%26P/TSX_Composite_Index", "S&P/TSX Composite", ".TO")
+
+
+def fetch_kospi200() -> dict[str, str]:
+    """KOSPI 200 (Südkorea)."""
+    tables = _fetch_table("https://en.wikipedia.org/wiki/KOSPI_200")
+    if not tables:
+        return {}
+    result = {}
+    for df in tables:
+        cols = [str(c).lower() for c in df.columns]
+        sym_idx = None
+        for c in ["symbol", "code", "ticker"]:
+            if c in cols:
+                sym_idx = cols.index(c)
+                break
+        if sym_idx is None:
+            continue
+        sym_col = df.columns[sym_idx]
+        name_col = None
+        for c in ["company", "name"]:
+            if c in cols:
+                name_col = df.columns[cols.index(c)]
+                break
+        if name_col is None:
+            name_col = df.columns[0] if cols[0] != str(sym_col).lower() else df.columns[1]
+        for _, row in df.iterrows():
+            try:
+                code = str(row[sym_col]).strip()
+                # Numerische Codes mit .KS Suffix
+                code_num = str(int(float(code))).zfill(6)
+                name = str(row[name_col]).strip()
+                result[f"{code_num}.KS"] = name
+            except (ValueError, TypeError):
+                continue
+        if len(result) >= 50:
+            break
+    if result:
+        log.info("KOSPI 200: %d Ticker geladen", len(result))
+    return result
+
+
 def update_ticker_list() -> dict[str, str]:
     """Aktualisiert die komplette Ticker-Liste von allen Indizes."""
     all_tickers = {}
@@ -322,14 +507,29 @@ def update_ticker_list() -> dict[str, str]:
     all_tickers.update(INDEX_TICKERS)
 
     fetchers = [
+        # Nordamerika
         ("S&P 500", fetch_sp500),
+        ("S&P 400 MidCap", fetch_sp400),
         ("NASDAQ-100", fetch_nasdaq100),
+        ("S&P/TSX Composite", fetch_tsx),
+        # Europa
         ("DAX 40", fetch_dax),
         ("MDAX", fetch_mdax),
         ("FTSE 100", fetch_ftse100),
+        ("FTSE 250", fetch_ftse250),
+        ("CAC 40", fetch_cac40),
+        ("IBEX 35", fetch_ibex35),
+        ("SMI", fetch_smi),
+        ("AEX", fetch_aex),
+        ("OMX Stockholm 30", fetch_omx30),
         ("Euro Stoxx 50", fetch_eurostoxx50),
-        ("Hang Seng", fetch_hangseng),
+        # Asien-Pazifik
         ("Nikkei 225", fetch_nikkei225),
+        ("Hang Seng", fetch_hangseng),
+        ("KOSPI 200", fetch_kospi200),
+        ("S&P/ASX 200", fetch_asx200),
+        ("BSE Sensex", fetch_sensex),
+        ("Nifty 50", fetch_nifty50),
     ]
 
     index_stats = {}
