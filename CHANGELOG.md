@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.2] - 2026-03-28
+### Verbessert
+- **Aktien-Crash-Monitor: Dividenden-Filter** 🛡️
+  - Bei erkanntem Crash wird einzeln die Dividenden-Historie geprueft
+  - Wenn eine Dividende in den letzten 7 Tagen >= 50% des Kursabfalls erklaert → kein Alert
+  - Verhindert Fehlalarme durch Ex-Dividende-Abschlaege
+  - Echte Crashes (wie EVD.DE -23% am 27.03.) werden weiterhin korrekt gemeldet
+
 ## [0.26.1] - 2026-03-28
 ### Verbessert
 - **Aktien-Crash-Monitor: Quell-Links in Alerts** 📎

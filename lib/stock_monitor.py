@@ -396,6 +396,42 @@ def _save_state(state: dict):
     STATE_FILE.write_text(json.dumps(state, indent=2, ensure_ascii=False))
 
 
+def _is_dividend_drop(symbol: str, prev_close: float, current_price: float) -> bool:
+    """Prüft ob der Kursabfall durch eine Dividende erklärbar ist.
+
+    Holt die letzten Dividenden des Tickers und prüft ob eine Dividende
+    in den letzten 5 Tagen den Preisunterschied erklärt (±50% Toleranz).
+    """
+    try:
+        ticker = yf.Ticker(symbol)
+        divs = ticker.dividends
+        if divs.empty:
+            return False
+
+        # Letzte Dividende prüfen
+        last_div_date = divs.index[-1]
+        last_div_amount = float(divs.iloc[-1])
+
+        # Dividende muss in den letzten 7 Tagen gewesen sein
+        days_ago = (datetime.now() - last_div_date.replace(tzinfo=None)).days
+        if days_ago > 7:
+            return False
+
+        # Preisunterschied vs. Dividende vergleichen
+        price_drop = prev_close - current_price
+        # Dividende erklärt den Drop wenn sie mindestens 50% davon ausmacht
+        if last_div_amount >= price_drop * 0.5:
+            log.info(
+                "Dividenden-Filter: %s Drop %.2f erklärt durch Dividende %.2f (vor %d Tagen)",
+                symbol, price_drop, last_div_amount, days_ago,
+            )
+            return True
+
+        return False
+    except Exception:
+        return False  # Im Zweifel als Crash behandeln
+
+
 def check_markets() -> list[dict]:
     """Prüft alle Ticker auf Kurseinbrüche. Gibt Liste der Alerts zurück."""
     watchlist = load_tickers()
@@ -452,6 +488,10 @@ def check_markets() -> list[dict]:
 
                 # Nur bei Crash State speichern (spart Speicher bei ~1000 Tickern)
                 if change_pct <= CRASH_THRESHOLD:
+                    # Dividenden-Check: Einzelticker prüfen ob Dividende den Abschlag erklärt
+                    if _is_dividend_drop(symbol, prev_close, current_price):
+                        continue  # Dividenden-Abschlag, kein Crash
+
                     alerts.append({
                         "symbol": symbol,
                         "name": name,
