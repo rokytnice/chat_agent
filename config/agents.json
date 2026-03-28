@@ -334,7 +334,7 @@
       "scheduled_tasks": [
         {
           "id": "stock_crash_check",
-          "enabled": true,
+          "enabled": false,
           "type": "bash",
           "silent": true,
           "cron": "*/30 6-22 * * 1-5",

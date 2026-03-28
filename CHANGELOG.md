@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.27.4] - 2026-03-28
+### Geändert
+- **Aktien-Crash-Monitor deaktiviert** 📉
+  - Task `stock_crash_check` auf `enabled: false` gesetzt
+  - Code bleibt erhalten, kann jederzeit wieder aktiviert werden
+
 ## [0.27.3] - 2026-03-28
 ### Verbessert
 - **Aktien-Crash-Monitor: Separater Ticker-Update Task entfernt** 🧹
