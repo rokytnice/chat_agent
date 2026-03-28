@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T12:30:16.903659",
+  "last_updated": "2026-03-28T12:31:01.658790",
   "agents": [
     {
       "id": "assistant",
@@ -113,11 +113,11 @@
           "silent": true,
           "timeout": 300,
           "detail": "Synchronisiere Gmail: Öffne mail.google.com, erfasse die neuesten 20 E-Mails (Absender, Betreff, Datum, Snippet-Zusammenfassung, Wichtigkeit). Speichere als JSON in data/sync_gmail.json und importiere dann in die Wissensbasis. WICHTIG: Sende KEINE Telegram-Nachricht mit dem Ergebnis.",
-          "last_run": "2026-03-28T08:30:45.953101",
+          "last_run": "2026-03-28T12:31:01.657177",
           "last_status": "success",
           "last_error": null,
-          "last_duration_seconds": 41.9,
-          "run_count": 101
+          "last_duration_seconds": 44.0,
+          "run_count": 102
         },
         {
           "id": "sync_calendar",
@@ -362,12 +362,20 @@
   ],
   "sessions": [
     {
+      "agent_id": "datasync",
+      "name": "Daten-Synchronizer",
+      "emoji": "🔄",
+      "session_id": "192479ea",
+      "transcript_mb": 2.8,
+      "last_activity": "2026-03-28T12:31:01.443835"
+    },
+    {
       "agent_id": "assistant",
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
       "transcript_mb": 69.8,
-      "last_activity": "2026-03-28T12:30:13.166962"
+      "last_activity": "2026-03-28T12:30:33.431910"
     },
     {
       "agent_id": "mailcheck",
@@ -376,14 +384,6 @@
       "session_id": "82459734",
       "transcript_mb": 3.8,
       "last_activity": "2026-03-28T10:24:46.470985"
-    },
-    {
-      "agent_id": "datasync",
-      "name": "Daten-Synchronizer",
-      "emoji": "🔄",
-      "session_id": "192479ea",
-      "transcript_mb": 2.8,
-      "last_activity": "2026-03-28T08:30:45.716974"
     },
     {
       "agent_id": "taskprep",
@@ -465,6 +465,13 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-28T12:31:01.657177",
+      "agent": "sync_gmail",
+      "task": "sync_gmail",
+      "status": "success",
+      "message": "OK (44.0s)"
+    },
+    {
       "timestamp": "2026-03-28T12:30:16.901114",
       "agent": "chrome_health",
       "task": "chrome_health",
@@ -484,13 +491,6 @@
       "task": "email_check",
       "status": "success",
       "message": "OK (48.1s)"
-    },
-    {
-      "timestamp": "2026-03-28T08:30:45.953101",
-      "agent": "sync_gmail",
-      "task": "sync_gmail",
-      "status": "success",
-      "message": "OK (41.9s)"
     },
     {
       "timestamp": "2026-03-28T07:01:58.683198",
@@ -564,6 +564,18 @@
     }
   ],
   "request_log": [
+    {
+      "id": null,
+      "timestamp": "2026-03-28T12:30:16.901114",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "bash",
+      "title": "Chrome Deep-Health-Check alle 30 Min (ergänzend zum Watchdog)",
+      "status": "success",
+      "duration_seconds": 0.1,
+      "source": "scheduler"
+    },
     {
       "id": null,
       "timestamp": "2026-03-28T12:00:51.287958",
