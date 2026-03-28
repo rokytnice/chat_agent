@@ -1,28 +1,43 @@
 {
-  "last_updated": "2026-03-28T08:30:45.955001",
+  "last_updated": "2026-03-28T09:00:04.225714",
   "agents": [
     {
       "id": "assistant",
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "status": "success",
+      "description": "Du bist ein hilfreicher persönlicher Assistent. Antworte auf Deutsch. | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "chrome_health",
-          "description": "Chrome Browser Health-Check alle 30 Min (Auto-Recovery)",
+          "description": "Chrome Deep-Health-Check alle 30 Min (ergänzend zum Watchdog)",
           "cron": "*/30 * * * *",
           "enabled": true,
-          "last_run": "2026-03-28T08:30:03.133766",
+          "task_type": "bash",
+          "silent": true,
+          "timeout": 60,
+          "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.chrome_manager health",
+          "last_run": "2026-03-28T09:00:04.223198",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 0.1,
-          "run_count": 482
+          "run_count": 483
         },
         {
           "id": "ustva_check",
           "description": "USt-VA Prüfung am 10. jedes Monats um 9 Uhr",
           "cron": "0 9 10 * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 600,
+          "detail": "Prüfe die Umsatzsteuer-Voranmeldung (USt-VA) des Vormonats in Lexware. Gehe wie folgt vor:\n\n1. Öffne den Browser und navigiere zu https://app.lexware.de/sign-in/authenticate\n2. Logge dich ein mit rochlitz.consulting@gmail.com und dem Standard-Passwort\n3. Entferne Cookie-Banner (document.getElementById('usercentrics-root')?.remove()) und Intercom-Chat (document.querySelectorAll('[id*=\"intercom\"]').forEach(el => el.remove()))\n4. Ermittle den Vormonat (aktueller Monat - 1) und navigiere zu https://",
           "last_run": null,
           "last_status": null,
           "last_error": null,
@@ -34,6 +49,10 @@
           "description": "E-Scooter Versicherungserinnerung am 10. Februar jedes Jahr",
           "cron": "0 9 10 2 *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 300,
+          "detail": "ERINNERUNG: Lisas E-Scooter-Versicherungskennzeichen läuft am 28. Februar ab!\n\nDetails:\n- Versicherungsnehmerin: Lisa Eisenblätter\n- Versicherer: AdmiralDirekt (über CHECK24)\n- Aktuelle Police: ESC-55749419\n- Ablauf: 28.02. des aktuellen Jahres\n- Fahrzeug: E-Scooter bis 20 km/h, FIN: JE91S851M04361\n\nBitte:\n1. Prüfe in Lisas E-Mails (eisenbaetter.lisa@gmail.com) oder CHECK24, ob die Versicherung automatisch verlängert wurde\n2. Falls nicht: Neue Versicherung abschließen (ca. 25-30€/Jahr)\n3. Neues ",
           "last_run": null,
           "last_status": null,
           "last_error": null,
@@ -47,12 +66,23 @@
       "name": "E-Mail Wächter",
       "emoji": "📧",
       "status": "success",
+      "description": "Du bist ein E-Mail-Assistent. Deine Aufgabe ist es, das Gmail-Postfach von André Rochlitz (andre.rochlitz@gmail.com) auf wichtige NEUE E-Mails zu prüfen.\n\n## Duplikat-Vermeidung (WICHTIG!):\n1. Lies ZUERST die Datei data/mailcheck_seen.json (im Working Directory).\n   Diese enthält ein Array 'seen_ema | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "email_check",
           "description": "E-Mail-Check alle 5 Stunden",
           "cron": "23 */5 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 180,
+          "detail": "Prüfe jetzt das Gmail-Postfach auf wichtige ungelesene E-Mails. Öffne https://mail.google.com im Browser und berichte.",
           "last_run": "2026-03-28T05:23:28.448371",
           "last_status": "success",
           "last_error": null,
@@ -66,12 +96,23 @@
       "name": "Daten-Synchronizer",
       "emoji": "🔄",
       "status": "error",
+      "description": "Du bist ein Daten-Synchronizer. Deine Aufgabe ist es, persönliche Daten aus Google-Diensten zu erfassen und als strukturiertes JSON zu speichern.\n\n## WICHTIG: Output-Format\nDu musst die erfassten Daten IMMER als JSON in eine Datei schreiben. Verwende dazu den bash-Befehl mit cat und heredoc.\n\n## Gma | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "sync_gmail",
           "description": "Gmail-Sync alle 4 Stunden",
           "cron": "30 */4 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": true,
+          "timeout": 300,
+          "detail": "Synchronisiere Gmail: Öffne mail.google.com, erfasse die neuesten 20 E-Mails (Absender, Betreff, Datum, Snippet-Zusammenfassung, Wichtigkeit). Speichere als JSON in data/sync_gmail.json und importiere dann in die Wissensbasis. WICHTIG: Sende KEINE Telegram-Nachricht mit dem Ergebnis.",
           "last_run": "2026-03-28T08:30:45.953101",
           "last_status": "success",
           "last_error": null,
@@ -83,6 +124,10 @@
           "description": "Kalender-Sync täglich 6 Uhr",
           "cron": "0 6 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": true,
+          "timeout": 600,
+          "detail": "Synchronisiere Kalender: Öffne calendar.google.com, erfasse alle sichtbaren Termine der nächsten 14 Tage. Speichere als JSON in data/sync_calendar.json und importiere in die Wissensbasis.",
           "last_run": "2026-03-28T06:01:21.355433",
           "last_status": "success",
           "last_error": null,
@@ -94,6 +139,10 @@
           "description": "Kontakte-Sync wöchentlich Sonntag 3 Uhr",
           "cron": "0 3 * * 0",
           "enabled": true,
+          "task_type": "claude",
+          "silent": true,
+          "timeout": 600,
+          "detail": "Synchronisiere Kontakte: Öffne contacts.google.com, erfasse alle Kontakte mit Name, E-Mail, Telefon, Organisation. Speichere als JSON in data/sync_contacts.json und importiere in die Wissensbasis.",
           "last_run": "2026-03-22T03:06:18.077877",
           "last_status": "error",
           "last_error": "httpx.ConnectError: [Errno -3] Temporary failure in name resolution",
@@ -105,6 +154,10 @@
           "description": "Drive-Index täglich 4 Uhr",
           "cron": "0 4 * * *",
           "enabled": true,
+          "task_type": "bash",
+          "silent": true,
+          "timeout": 300,
+          "detail": "",
           "last_run": "2026-03-28T04:01:22.309032",
           "last_status": "success",
           "last_error": null,
@@ -116,6 +169,10 @@
           "description": "Konversations-Sync alle 6 Stunden in RAG",
           "cron": "0 */6 * * *",
           "enabled": true,
+          "task_type": "bash",
+          "silent": true,
+          "timeout": 120,
+          "detail": "",
           "last_run": "2026-03-28T00:00:13.051191",
           "last_status": "success",
           "last_error": null,
@@ -129,12 +186,23 @@
       "name": "Aufgaben-Vorbereiter",
       "emoji": "📋",
       "status": "success",
+      "description": "Du bist der 'Aufgaben-Vorbereiter' – ein intelligenter Planungs- und Erinnerungs-Agent für André Rochlitz.\n\nDein Auftrag: Analysiere die synchronisierten Kalender-, E-Mail- und Kontaktdaten, erkenne nahende Termine und Aufgaben, und sende automatische, intelligente Benachrichtigungen mit Vorbereitun | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "taskprep_morning",
           "description": "Morgen-Briefing täglich 7 Uhr",
           "cron": "0 7 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 420,
+          "detail": "Erstelle das Morgen-Briefing für heute.\n\nWICHTIG – Cross-Session-Abgleich VOR dem Briefing:\n1. Lies ZUERST die letzten Telegram-Nachrichten von André (Chat-Verlauf) – seine gesendeten Nachrichten enthalten implizite Status-Updates (z.B. 'war da, niemand kam' = Termin gescheitert/erledigt, 'ist storniert' = nicht mehr relevant)\n2. Prüfe Doctolib auf aktuelle Termine: Öffne https://www.doctolib.de/account/appointments im Browser und prüfe ob dort Termine anstehen. NUR tatsächlich vorhandene Termin",
           "last_run": "2026-03-28T07:01:58.683198",
           "last_status": "success",
           "last_error": null,
@@ -146,6 +214,10 @@
           "description": "Vorbereitungs-Check alle 3h (9-20 Uhr)",
           "cron": "0 */3 9-20 * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 300,
+          "detail": "Laufe einen Vorbereitungs-Check durch.\n\nWICHTIG: Lies zuerst Andrés letzte Telegram-Nachrichten für Status-Updates. Prüfe Doctolib (https://www.doctolib.de/account/appointments) auf tatsächlich vorhandene Termine. Gleiche alles ab – nichts melden was bereits erledigt/storniert ist!\n\nDann: Prüfe auf nahende Termine (nächste 6 Stunden), berechne Abfahrtszeiten mit Google Maps, sende individuelle Erinnerungen. Antworte NICHT wenn nichts ansteht.",
           "last_run": "2026-03-20T18:00:43.906395",
           "last_status": "success",
           "last_error": null,
@@ -157,6 +229,10 @@
           "description": "Abend-Review täglich 20 Uhr",
           "cron": "0 20 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 600,
+          "detail": "Erstelle den Abend-Review.\n\nWICHTIG: Lies zuerst Andrés letzte Telegram-Nachrichten für Status-Updates. Gleiche alle Termine/Aufgaben mit seinen Nachrichten ab – erkenne was erledigt, storniert oder gescheitert ist.\n\nDann: Rückblick auf den heutigen Tag (geplante vs. tatsächliche Termine), offene Aufgaben, Vorschau auf morgen. Aktualisiere taskprep_state.json.",
           "last_run": "2026-03-27T20:02:13.861307",
           "last_status": "success",
           "last_error": null,
@@ -170,12 +246,23 @@
       "name": "Fake-Shop News Radar",
       "emoji": "📰",
       "status": "success",
+      "description": "Du bist der 'Fake-Shop News Radar' Agent für die Website fakedefenseai.wordpress.com.\n\nDein Auftrag: Führe das News-Scraper-Script aus, und veröffentliche die gefundenen Artikel als neuen Blogbeitrag auf WordPress.\n\n## WordPress-Details\n- Website: fakedefenseai.wordpress.com\n- E-Mail: fake.defense.a | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "daily_news",
           "description": "Täglicher Fake-Shop News Scan um 21 Uhr",
           "cron": "0 21 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 1800,
+          "detail": "Führe den täglichen News-Scan durch: Starte das News-Script, erstelle bei neuen Artikeln einen WordPress-Blogbeitrag, aktualisiere die Blog-Übersichtsseite, poste auf Twitter/X und Instagram. Melde das Ergebnis mit allen Links.",
           "last_run": "2026-03-27T21:22:56.032674",
           "last_status": "success",
           "last_error": null,
@@ -189,12 +276,23 @@
       "name": "Video Radar",
       "emoji": "🎬",
       "status": "success",
+      "description": "Du bist der 'Video Radar' Agent für die Website fakedefenseai.wordpress.com.\n\nDein Auftrag: Führe das Video-Scraper-Script aus, veröffentliche die gefundenen Videos als WordPress-Blogbeitrag, poste sie auf Twitter/X und Instagram, und sende alle Links per Telegram.\n\n## WordPress-Details\n- Website: f | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "daily_videos",
           "description": "Täglicher Video Radar Scan um 22 Uhr",
           "cron": "0 22 * * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 1800,
+          "detail": "Führe den täglichen Video-Scan durch: Starte das Video-Script, erstelle bei neuen Videos einen WordPress-Blogbeitrag, poste auf Twitter/X und Instagram, und sende alle Links per Telegram.",
           "last_run": "2026-03-27T22:14:59.180061",
           "last_status": "success",
           "last_error": null,
@@ -208,12 +306,23 @@
       "name": "Steuer & Buchhaltung 2025",
       "emoji": "📊",
       "status": null,
+      "description": "Du bist der 'Steuer & Buchhaltung'-Agent für André Rochlitz. Du kümmerst dich um die Einkommensteuererklärung 2025, die geschäftliche Buchhaltung und alle steuerlichen Pflichten.\n\n## Stammdaten\n- **Name:** André Rochlitz\n- **Adresse:** Im Achterkastell 1, 10315 Berlin\n- **Geburtsdatum:** 23.12.1975\n | Tools: claude, bash, playwright | Modell: opus",
+      "tools": [
+        "claude",
+        "bash",
+        "playwright"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "steuer_reminder",
           "description": "Monatliche Steuer-Statusprüfung am 1. des Monats",
           "cron": "0 9 1 * *",
           "enabled": true,
+          "task_type": "claude",
+          "silent": false,
+          "timeout": 300,
+          "detail": "Prüfe den aktuellen Stand der Steuererklärung 2025: Welche Unterlagen sind vorhanden, welche fehlen noch? Prüfe die Ordner auf Google Drive (6_Steuer/2025/, 5_Privat/2025/, rochlitz.consulting/business/2025/). Melde den Status kurz per Telegram – nur wenn Handlungsbedarf besteht.",
           "last_run": null,
           "last_status": null,
           "last_error": null,
@@ -227,23 +336,21 @@
       "name": "Aktien-Crash-Monitor",
       "emoji": "📉",
       "status": null,
+      "description": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) über 3.000 Aktien aus 20 Indizes weltweit auf Kurseinbrüche >= 20%.\n\n## Überwachte Indizes (alle Einzelaktien)\nNordamerika: S&P 500, S&P 400 MidCap, NASDAQ-100, S&P/TSX (Kanada)\nEuropa: DAX 40, MDAX, FTSE 100, FTSE 250, | Tools: bash | Modell: opus",
+      "tools": [
+        "bash"
+      ],
+      "model": "opus",
       "tasks": [
         {
           "id": "stock_crash_check",
           "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr, ~1.000 Ticker)",
           "cron": "*/30 6-22 * * 1-5",
           "enabled": true,
-          "last_run": null,
-          "last_status": null,
-          "last_error": null,
-          "last_duration_seconds": null,
-          "run_count": 0
-        },
-        {
-          "id": "stock_ticker_update",
-          "description": "Ticker-Liste monatlich aktualisieren (1. des Monats, 3 Uhr)",
-          "cron": "0 3 1 * *",
-          "enabled": true,
+          "task_type": "bash",
+          "silent": true,
+          "timeout": 300,
+          "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
           "last_run": null,
           "last_status": null,
           "last_error": null,
@@ -251,6 +358,72 @@
           "run_count": 0
         }
       ]
+    }
+  ],
+  "sessions": [
+    {
+      "agent_id": "assistant",
+      "name": "Persönlicher Assistent",
+      "emoji": "🤖",
+      "session_id": "dbd18ba8",
+      "transcript_mb": 67.2,
+      "last_activity": "2026-03-28T08:59:59.369442"
+    },
+    {
+      "agent_id": "datasync",
+      "name": "Daten-Synchronizer",
+      "emoji": "🔄",
+      "session_id": "192479ea",
+      "transcript_mb": 2.8,
+      "last_activity": "2026-03-28T08:30:45.716974"
+    },
+    {
+      "agent_id": "taskprep",
+      "name": "Aufgaben-Vorbereiter",
+      "emoji": "📋",
+      "session_id": "df9c5cbe",
+      "transcript_mb": 3.2,
+      "last_activity": "2026-03-28T07:01:58.468126"
+    },
+    {
+      "agent_id": "mailcheck",
+      "name": "E-Mail Wächter",
+      "emoji": "📧",
+      "session_id": "82459734",
+      "transcript_mb": 3.8,
+      "last_activity": "2026-03-28T05:23:28.234572"
+    },
+    {
+      "agent_id": "videoradar",
+      "name": "Video Radar",
+      "emoji": "🎬",
+      "session_id": "aa190d7f",
+      "transcript_mb": 2.6,
+      "last_activity": "2026-03-27T22:14:58.663098"
+    },
+    {
+      "agent_id": "newsradar",
+      "name": "Fake-Shop News Radar",
+      "emoji": "📰",
+      "session_id": "7353cd28",
+      "transcript_mb": 2.8,
+      "last_activity": "2026-03-27T21:22:55.753990"
+    },
+    {
+      "agent_id": "researcher",
+      "name": "Web-Researcher",
+      "emoji": "🔍",
+      "session_id": "4d2a23fb",
+      "transcript_mb": 138.0,
+      "last_activity": "2026-03-02T07:27:06.049409"
+    },
+    {
+      "agent_id": "fakechecker",
+      "name": "Fake-Kanzlei Checker",
+      "emoji": "⚖️",
+      "session_id": "393759ea",
+      "transcript_mb": 0.2,
+      "last_activity": "2026-02-27T17:04:28.553115"
     }
   ],
   "retouren": {
@@ -292,18 +465,18 @@
   },
   "activity_log": [
     {
+      "timestamp": "2026-03-28T09:00:04.223198",
+      "agent": "chrome_health",
+      "task": "chrome_health",
+      "status": "success",
+      "message": "OK (0.1s)"
+    },
+    {
       "timestamp": "2026-03-28T08:30:45.953101",
       "agent": "sync_gmail",
       "task": "sync_gmail",
       "status": "success",
       "message": "OK (41.9s)"
-    },
-    {
-      "timestamp": "2026-03-28T08:30:03.133766",
-      "agent": "chrome_health",
-      "task": "chrome_health",
-      "status": "success",
-      "message": "OK (0.1s)"
     },
     {
       "timestamp": "2026-03-28T07:01:58.683198",
@@ -389,5 +562,45 @@
       "status": "timeout",
       "message": "Timeout nach 30s"
     }
-  ]
+  ],
+  "request_log": [
+    {
+      "id": 3,
+      "timestamp": "2026-03-28T08:59:59.861467",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Wie funktioniert der aktiencrash Monitor was sind hier die Q",
+      "status": "success",
+      "duration_seconds": 27.8,
+      "source": "user"
+    },
+    {
+      "id": 2,
+      "timestamp": "2026-03-28T08:59:32.038192",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Ja",
+      "status": "success",
+      "duration_seconds": 59.4,
+      "source": "user"
+    },
+    {
+      "id": 1,
+      "timestamp": "2026-03-28T08:54:09.885300",
+      "agent_id": "assistant",
+      "agent_name": "Persönlicher Assistent",
+      "agent_emoji": "🤖",
+      "job_type": "text",
+      "title": "Aktiencrash Monitor wozu brauche ich diesen Ticker",
+      "status": "success",
+      "duration_seconds": 23.4,
+      "source": "user"
+    }
+  ],
+  "current_jobs": [],
+  "queued_jobs": []
 }
