@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.6] - 2026-03-28
+### Geändert
+- **Aktien-Crash-Monitor als eigener Agent** 📉
+  - Von Task unter "Persoenlicher Assistent" zu eigenstaendigem Agent `stock_monitor` befördert
+  - Eigene Dashboard-Karte mit Emoji 📉, Info-Button und Beschreibung
+  - Beschreibung: Ueberwachte Maerkte (28 Ticker), Schwellenwert (20%), Datenquelle (yfinance)
+  - Scheduler-State migriert (stock_crash_monitor → stock_crash_check)
+  - Cronjob unveraendert: */30 6-22 * * 1-5 (Mo-Fr alle 30 Min)
+
 ## [0.25.5] - 2026-03-28
 ### Hinzugefügt
 - **Automatischer Retouren-Abgleich im Mailcheck** 💰

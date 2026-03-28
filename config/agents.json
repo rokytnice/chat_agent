@@ -54,16 +54,6 @@
           "prompt": "ERINNERUNG: Lisas E-Scooter-Versicherungskennzeichen läuft am 28. Februar ab!\n\nDetails:\n- Versicherungsnehmerin: Lisa Eisenblätter\n- Versicherer: AdmiralDirekt (über CHECK24)\n- Aktuelle Police: ESC-55749419\n- Ablauf: 28.02. des aktuellen Jahres\n- Fahrzeug: E-Scooter bis 20 km/h, FIN: JE91S851M04361\n\nBitte:\n1. Prüfe in Lisas E-Mails (eisenbaetter.lisa@gmail.com) oder CHECK24, ob die Versicherung automatisch verlängert wurde\n2. Falls nicht: Neue Versicherung abschließen (ca. 25-30€/Jahr)\n3. Neues Versicherungskennzeichen bestellen/aufkleben (Farbwechsel jedes Jahr am 1. März!)\n4. Sende André eine Telegram-Nachricht mit dem Status\n\n⚠️ WICHTIG: Ohne gültiges Kennzeichen ab 1. März ist das Fahren eine STRAFTAT (§6 PflVG)!",
           "timeout_seconds": 300,
           "description": "E-Scooter Versicherungserinnerung am 10. Februar jedes Jahr"
-        },
-        {
-          "id": "stock_crash_monitor",
-          "enabled": true,
-          "type": "bash",
-          "silent": true,
-          "cron": "*/30 6-22 * * 1-5",
-          "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
-          "timeout_seconds": 120,
-          "description": "Aktien-Crash-Monitor alle 30 Min (Mo-Fr 6-22 Uhr)"
         }
       ]
     },
@@ -331,6 +321,27 @@
           "prompt": "Prüfe den aktuellen Stand der Steuererklärung 2025: Welche Unterlagen sind vorhanden, welche fehlen noch? Prüfe die Ordner auf Google Drive (6_Steuer/2025/, 5_Privat/2025/, rochlitz.consulting/business/2025/). Melde den Status kurz per Telegram – nur wenn Handlungsbedarf besteht.",
           "timeout_seconds": 300,
           "description": "Monatliche Steuer-Statusprüfung am 1. des Monats"
+        }
+      ]
+    },
+    "stock_monitor": {
+      "name": "Aktien-Crash-Monitor",
+      "emoji": "📉",
+      "system_prompt": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) die wichtigsten Aktienindizes und Einzelaktien auf Kurseinbrüche >= 20%.\n\n## Überwachte Märkte\n- 8 Indizes: S&P 500, Dow Jones, NASDAQ, DAX 40, Euro Stoxx 50, FTSE 100, Nikkei 225, Hang Seng\n- 10 US-Aktien: Apple, Microsoft, Amazon, Alphabet, Meta, Tesla, NVIDIA, JPMorgan, Johnson & Johnson, Visa\n- 10 EU-Aktien: SAP, ASML, LVMH, Siemens, Allianz, DHL Group, TotalEnergies, Schneider Electric, Air Liquide, Münchener Rück\n\n## Schwellenwert\n- Alert bei >= 20% Kursverlust gegenüber dem Vortagesschlusskurs\n- Basiert auf yfinance (kostenlose Echtzeit-Kursdaten)\n\n## State\n- Letzte Kurse: data/stock_state.json\n- Log: data/request_log.json",
+      "model": "opus",
+      "tools": ["bash"],
+      "working_dir": null,
+      "scheduled_tasks": [
+        {
+          "id": "stock_crash_check",
+          "enabled": true,
+          "type": "bash",
+          "silent": true,
+          "cron": "*/30 6-22 * * 1-5",
+          "command": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
+          "prompt": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
+          "timeout_seconds": 120,
+          "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr)"
         }
       ]
     },
