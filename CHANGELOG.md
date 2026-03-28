@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.25.1] - 2026-03-28
+### Hinzugefügt
+- **Request-Log im Dashboard** 📋
+  - Neuer Bereich "Request-Log" ganz unten auf dem Dashboard
+  - Zeigt alle Anfragen an Agenten: User-Requests (💬) und Scheduler-Tasks (⏰)
+  - Persistentes Log in `data/request_log.json` (letzte 200 Eintraege)
+  - Bot-Requests (PipeQueue) werden nach Job-Abschluss geloggt
+  - Scheduler-Tasks werden nach Ausfuehrung geloggt
+  - Anzeige: Zeitstempel, Agent-Emoji, Job-Typ (text/bash/photo), Titel, Dauer, Status
+  - Farbcodierung nach Job-Typ: text (blau), photo (lila), bash (orange)
+
 ## [0.25.0] - 2026-03-28
 ### Behoben
 - **Cross-Session-Abgleich fuer Erinnerungen** 🔄

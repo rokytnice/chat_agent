@@ -25,7 +25,7 @@ from telegram.ext import (
 from telegram.constants import ChatAction
 
 from lib.auth import TwoFactorAuth
-from lib.worker import log_request
+# worker/metrics entfernt (Telemetrie-Fehler + nicht benötigt)
 from lib.rag_integration import RAGIntegration
 from lib.claude_pipe import ClaudePipe
 from lib.scheduler import TaskScheduler
@@ -134,10 +134,10 @@ class PipeQueue:
             while True:
                 try:
                     job = await asyncio.wait_for(
-                        self._queues[agent_id].get(), timeout=300
+                        self._queues[agent_id].get(), timeout=1800
                     )
                 except asyncio.TimeoutError:
-                    log.info("🔧 Worker [%s] beendet (5 Min ohne Jobs)", agent_id)
+                    log.info("🔧 Worker [%s] beendet (30 Min ohne Jobs)", agent_id)
                     break
 
                 self._current[agent_id] = job
@@ -158,6 +158,7 @@ class PipeQueue:
                     except Exception:
                         pass
                 finally:
+                    self._persist_request(job)
                     self._current.pop(agent_id, None)
                     self._queues[agent_id].task_done()
         finally:
@@ -169,6 +170,30 @@ class PipeQueue:
         message = job["message"]
         typing = TypingLoop(message.chat)
         typing.start()
+
+        # Progress-Ticker: sendet Zwischenstand alle 60s bei langen Aufgaben
+        progress_event = asyncio.Event()
+
+        async def _progress_ticker():
+            """Sendet Chat-Updates alle 60s, damit User weiß dass Bot noch arbeitet."""
+            wait_seconds = 60
+            count = 0
+            while not progress_event.is_set():
+                try:
+                    await asyncio.wait_for(progress_event.wait(), timeout=wait_seconds)
+                    break  # Event gesetzt → fertig
+                except asyncio.TimeoutError:
+                    count += 1
+                    mins = count
+                    try:
+                        await message.reply_text(
+                            f"⏳ Arbeite noch... ({mins} Min)\n"
+                            f"Aufgabe läuft weiter im Hintergrund."
+                        )
+                    except Exception:
+                        pass  # Telegram-Fehler nicht blockierend
+
+        ticker_task = asyncio.create_task(_progress_ticker())
 
         try:
             result = await self._pipe.execute(
@@ -188,6 +213,8 @@ class PipeQueue:
                 for i in range(0, len(output), 4000):
                     await message.reply_text(output[i:i + 4000])
         finally:
+            progress_event.set()
+            ticker_task.cancel()
             # Temp-Dateien aufräumen (z.B. Fotos)
             if job.get("tmp_path"):
                 job["tmp_path"].unlink(missing_ok=True)
@@ -197,6 +224,39 @@ class PipeQueue:
         self._history.append(job)
         if len(self._history) > 50:
             self._history = self._history[-50:]
+
+    def _persist_request(self, job: dict):
+        """Persist completed request to data/request_log.json for dashboard."""
+        try:
+            log_file = Path("data/request_log.json")
+            entries = []
+            if log_file.exists():
+                try:
+                    entries = json.loads(log_file.read_text())
+                except (json.JSONDecodeError, ValueError):
+                    entries = []
+
+            agent = job.get("agent", {})
+            entry = {
+                "id": job.get("id", 0),
+                "timestamp": (job.get("completed") or job.get("started") or job.get("enqueued", datetime.now())).isoformat(),
+                "agent_id": agent.get("id", "?"),
+                "agent_name": agent.get("name", "?"),
+                "agent_emoji": agent.get("emoji", ""),
+                "job_type": job.get("job_type", "text"),
+                "title": job.get("title", "")[:80],
+                "status": "success" if job.get("status") == "✅" else "error",
+                "duration_seconds": round(
+                    (job.get("completed", datetime.now()) - job.get("started", datetime.now())).total_seconds(), 1
+                ) if job.get("started") and job.get("completed") else None,
+                "source": "user",
+            }
+            entries.append(entry)
+            # Keep last 200 entries
+            entries = entries[-200:]
+            log_file.write_text(json.dumps(entries, indent=2, ensure_ascii=False, default=str))
+        except Exception as e:
+            log.warning("Request-Log persist failed: %s", e)
 
     def queue_size(self, agent_id: str = None) -> int:
         if agent_id:
@@ -305,7 +365,10 @@ class TypingLoop:
     async def _loop(self):
         try:
             while True:
-                await self.chat.send_action(ChatAction.TYPING)
+                try:
+                    await self.chat.send_action(ChatAction.TYPING)
+                except Exception:
+                    pass  # Netzwerk-Fehler nicht blockierend – einfach weiter
                 await asyncio.sleep(self.interval)
         except asyncio.CancelledError:
             pass
@@ -394,7 +457,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     agent = get_active_agent()
     log.info("[/start] Agent=%s, sende Hilfe-Nachricht", agent.get("name", "?"))
-    await log_request(update.effective_user.username, "/start", "", agent.get("name", "?"))
     await update.message.reply_text(
         f"Claude Code Telegram Bridge aktiv.\n"
         f"Aktiver Agent: {agent.get('emoji', '')} {agent.get('name', '?')}\n\n"
@@ -428,7 +490,6 @@ async def cmd_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     log.info("[/restart] Starte Bot neu...")
-    await log_request(update.effective_user.username, "/restart", "", "System")
     await update.message.reply_text("Bot wird neu gestartet...")
 
     start_script = WORKING_DIR / "start.sh"
@@ -459,11 +520,9 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     log_size = LOG_FILE.stat().st_size if LOG_FILE.exists() else 0
     agent = get_active_agent()
     log.info("[/status] Agent=%s, Log=%.1fKB", agent.get("name", "?"), log_size / 1024)
-    await log_request(update.effective_user.username, "/status", "", agent.get("name", "?"))
     log.info("[/status] Antwort gesendet")
     scheduler_info = scheduler.get_status() if scheduler else "Scheduler: nicht initialisiert"
     reminder_info = reminder_mgr.get_stats()
-    sync_info = knowledge_sync.get_sync_status()
     queue_info = claude_queue.get_status()
     pipe_info = claude_pipe.get_status()
     await update.message.reply_text(
@@ -476,7 +535,6 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"{pipe_info}\n\n"
         f"{queue_info}\n\n"
         f"{reminder_info}\n\n"
-        f"{sync_info}\n\n"
         f"{scheduler_info}"
     )
 
@@ -532,7 +590,6 @@ async def cmd_agent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ACTIVE_AGENT["id"] = agent_id
     agent = agents[agent_id]
     log.info("Agent gewechselt zu: %s (%s)", agent_id, agent.get("name"))
-    await log_request(update.effective_user.username, "/agent", agent_id, agent.get("name", "?"))
     await update.message.reply_text(
         f"{agent.get('emoji', '')} Agent gewechselt: {agent.get('name', agent_id)}\n"
         f"Rolle: {agent.get('system_prompt', '')[:200]}"
@@ -560,8 +617,6 @@ async def cmd_claude(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     agent = get_active_agent()
     log.info("CMD /claude [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
-    await log_request(update.effective_user.username, "/claude", prompt, agent.get("name", "?"))
-
     # Job in Warteschlange einreihen
     chat_id = str(update.message.chat_id)
     agent_id = agent.get("id", "default")
@@ -587,7 +642,6 @@ async def cmd_bash(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     log.info("CMD /bash von %s: %s", update.effective_user.username, command[:100])
-    await log_request(update.effective_user.username, "/bash", command, "System")
     typing = TypingLoop(update.message.chat)
     typing.start()
 
@@ -630,8 +684,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = update.message.caption or "Analysiere dieses Bild detailliert. Beschreibe was du siehst."
     log.info("Foto von %s (caption: %s)", update.effective_user.username, caption[:100])
     agent = get_active_agent()
-    await log_request(update.effective_user.username, "Foto", caption, agent.get("name", "?"))
-
     # Höchste Auflösung nehmen (letztes Element in der Liste)
     photo = update.message.photo[-1]
     file = await photo.get_file()
@@ -692,8 +744,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     agent = get_active_agent()
     log.info("Freitext [%s] von %s: %s", agent["id"], update.effective_user.username, prompt[:100])
-    await log_request(update.effective_user.username, "Freitext", prompt, agent.get("name", "?"))
-
     # Job in Warteschlange einreihen
     chat_id = str(update.message.chat_id)
     agent_id = agent.get("id", "default")
@@ -728,8 +778,6 @@ async def cmd_newsession(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     agent = get_active_agent()
     agent_id = agent.get("id", "default")
-    await log_request(update.effective_user.username, "/newsession", agent_id, agent.get("name", "?"))
-
     if claude_pipe.reset_session(agent_id):
         await update.message.reply_text(
             f"{agent.get('emoji', '')} Session für {agent.get('name', agent_id)} zurückgesetzt.\n"
@@ -764,7 +812,6 @@ async def cmd_vorlesen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     log.info("CMD /vorlesen von %s: %s", update.effective_user.username, text[:100])
-    await log_request(update.effective_user.username, "/vorlesen", text, "TTS")
     await update.message.chat.send_action(ChatAction.RECORD_VOICE)
 
     try:
@@ -972,7 +1019,12 @@ async def cmd_scheduler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def error_handler(update, context):
     """Fehlerbehandlung für Telegram-Fehler (besonders Netzwerkfehler)."""
-    log.error("Telegram Fehler: %s", context.error, exc_info=context.error)
+    from telegram.error import NetworkError, TimedOut
+    if isinstance(context.error, (NetworkError, TimedOut)):
+        # Netzwerk-Timeouts sind normal bei Long-Polling – nur als WARNING loggen
+        log.warning("Telegram Netzwerk: %s", context.error)
+    else:
+        log.error("Telegram Fehler: %s", context.error, exc_info=context.error)
 
 
 async def post_init(application: Application):
@@ -1024,7 +1076,23 @@ def main():
         print("FEHLER: TELEGRAM_BOT_TOKEN nicht in .env gesetzt!")
         return
 
-    app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    from telegram.ext import Defaults
+    from telegram.request import HTTPXRequest
+    # Robustere HTTP-Verbindung: höhere Timeouts, Connection-Pooling
+    request = HTTPXRequest(
+        connect_timeout=20.0,
+        read_timeout=45.0,
+        write_timeout=30.0,
+        pool_timeout=10.0,
+        connection_pool_size=8,
+    )
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .request(request)
+        .post_init(post_init)
+        .build()
+    )
 
     # Error-Handler für Netzwerk- und andere Fehler
     app.add_error_handler(error_handler)
@@ -1051,7 +1119,12 @@ def main():
 
     agent = get_active_agent()
     log.info("=== Bot gestartet === PID=%d, Agent=%s, Chat-ID=%d, Working Dir=%s", os.getpid(), agent["id"], ALLOWED_CHAT_ID, WORKING_DIR)
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    app.run_polling(
+        allowed_updates=Update.ALL_TYPES,
+        read_timeout=30,
+        connect_timeout=15,
+        pool_timeout=10,
+    )
 
 
 if __name__ == "__main__":

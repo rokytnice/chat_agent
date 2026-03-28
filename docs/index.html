@@ -91,6 +91,21 @@
   .session-bar { height: 4px; border-radius: 2px; background: var(--border); margin-top: 0.5rem; overflow: hidden; }
   .session-bar-fill { height: 100%; border-radius: 2px; background: var(--purple); transition: width 0.3s; }
 
+  /* Request Log */
+  .request-log { max-height: 500px; overflow-y: auto; }
+  .req-entry { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; display: flex; gap: 0.75rem; align-items: center; }
+  .req-entry:hover { background: rgba(88,166,255,0.05); }
+  .req-time { color: var(--dim); white-space: nowrap; min-width: 130px; font-size: 0.75rem; }
+  .req-agent { min-width: 30px; text-align: center; }
+  .req-type { min-width: 50px; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px; text-align: center; background: rgba(88,166,255,0.1); color: var(--accent); }
+  .req-type-photo { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .req-type-bash { background: rgba(210,153,34,0.15); color: var(--orange); }
+  .req-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .req-duration { color: var(--dim); font-size: 0.75rem; min-width: 50px; text-align: right; }
+  .req-badge { padding: 1px 6px; border-radius: 8px; font-size: 0.65rem; font-weight: 600; }
+  .req-badge-success { background: rgba(63,185,80,0.15); color: var(--green); }
+  .req-badge-error { background: rgba(248,81,73,0.15); color: var(--red); }
+
   .loading { text-align: center; padding: 3rem; color: var(--dim); }
   .error-banner { background: rgba(248,81,73,0.15); border: 1px solid var(--red); color: var(--red); padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; display: none; }
 
@@ -190,6 +205,14 @@
 <h2>Aktivitaetslog</h2>
 <div class="card">
   <div class="log" id="activity-log">
+    <div class="loading">Lade Daten...</div>
+  </div>
+</div>
+
+<h2>📋 Request-Log</h2>
+<div class="section-desc">Alle Anfragen an die Agenten (User-Requests &amp; Scheduled Tasks)</div>
+<div class="card">
+  <div class="request-log" id="request-log">
     <div class="loading">Lade Daten...</div>
   </div>
 </div>
@@ -329,6 +352,29 @@ function renderSessions(sessions) {
   }).join('');
 }
 
+function renderRequests(requests) {
+  const el = document.getElementById('request-log');
+  if (!requests || requests.length === 0) { el.innerHTML = '<div class="loading">Noch keine Requests aufgezeichnet</div>'; return; }
+
+  el.innerHTML = requests.map(r => {
+    const ts = r.timestamp ? new Date(r.timestamp) : null;
+    const timeStr = ts ? ts.toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '-';
+    const typeCls = r.job_type === 'photo' ? 'req-type req-type-photo' : (r.job_type === 'bash' ? 'req-type req-type-bash' : 'req-type');
+    const statusCls = r.status === 'success' ? 'req-badge req-badge-success' : 'req-badge req-badge-error';
+    const statusTxt = r.status === 'success' ? 'OK' : 'ERR';
+    const dur = r.duration_seconds != null ? r.duration_seconds.toFixed(1) + 's' : '-';
+    const srcIcon = r.source === 'scheduler' ? '⏰' : '💬';
+    return `<div class="req-entry">
+      <span class="req-time">${srcIcon} ${timeStr}</span>
+      <span class="req-agent" title="${r.agent_name || ''}">${r.agent_emoji || '🤖'}</span>
+      <span class="${typeCls}">${r.job_type || 'text'}</span>
+      <span class="req-title" title="${(r.title || '').replace(/"/g, '&quot;')}">${r.title || '-'}</span>
+      <span class="req-duration">${dur}</span>
+      <span class="${statusCls}">${statusTxt}</span>
+    </div>`;
+  }).join('');
+}
+
 function renderLog(log) {
   const el = document.getElementById('activity-log');
   if (!log || log.length === 0) { el.innerHTML = '<div class="loading">Keine Eintraege</div>'; return; }
@@ -366,6 +412,7 @@ function render(data) {
   renderSessions(data.sessions);
   renderRetouren(data.retouren);
   renderLog(data.activity_log);
+  renderRequests(data.request_log);
 
   document.getElementById('error-banner').style.display = 'none';
 }

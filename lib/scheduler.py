@@ -189,6 +189,9 @@ class TaskScheduler:
 
         start = datetime.now()
 
+        # Intervall für Zwischenstand-Meldungen (Sekunden)
+        progress_interval = task_config.get("progress_interval", 120)
+
         try:
             if task_type == "bash":
                 # ---- Bash-Task: Direkte Shell-Ausführung, KEIN Claude ----
@@ -207,7 +210,7 @@ class TaskScheduler:
                 if stderr.decode().strip():
                     output += f"\n--- STDERR ---\n{stderr.decode().strip()}"
             else:
-                # ---- Claude-Task: Standard-Ausführung ----
+                # ---- Claude-Task: Ausführung mit Streaming-Fortschritt ----
                 cmd = self.build_claude_cmd(prompt, agent, "scheduler")
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
@@ -215,13 +218,67 @@ class TaskScheduler:
                     stderr=asyncio.subprocess.PIPE,
                     cwd=str(WORKING_DIR),
                 )
-                stdout, stderr = await asyncio.wait_for(
-                    proc.communicate(), timeout=timeout
-                )
+
+                # Streaming: stdout zeilenweise lesen + Zwischenstände senden
+                output_lines = []
+                stream_done = asyncio.Event()
+
+                async def _read_stream():
+                    """Liest stdout zeilenweise und sammelt Output."""
+                    while True:
+                        line = await proc.stdout.readline()
+                        if not line:
+                            break
+                        decoded = line.decode().rstrip()
+                        output_lines.append(decoded)
+                    stream_done.set()
+
+                async def _progress_ticker():
+                    """Sendet unabhängig vom Output alle progress_interval Sekunden ein Update."""
+                    progress_count = 0
+                    while not stream_done.is_set():
+                        try:
+                            await asyncio.wait_for(
+                                stream_done.wait(),
+                                timeout=progress_interval,
+                            )
+                            # Stream ist fertig → kein Update mehr nötig
+                            break
+                        except asyncio.TimeoutError:
+                            # progress_interval ist abgelaufen, Stream läuft noch
+                            if silent:
+                                continue
+                            progress_count += 1
+                            elapsed_so_far = (datetime.now() - start).total_seconds()
+                            # Letzte 5 Zeilen als Vorschau
+                            preview = "\n".join(output_lines[-5:]) if output_lines else "(noch keine Ausgabe)"
+                            if len(preview) > 500:
+                                preview = preview[-500:]
+                            await self.send_message(
+                                f"⏳ {agent_emoji} {description}\n"
+                                f"Läuft seit {elapsed_so_far:.0f}s...\n"
+                                f"{'─' * 25}\n"
+                                f"{preview}"
+                            )
+
+                try:
+                    # Beide Tasks parallel: Lesen + Progress-Timer
+                    reader_task = asyncio.create_task(_read_stream())
+                    ticker_task = asyncio.create_task(_progress_ticker())
+                    # Timeout gilt für den gesamten Prozess
+                    await asyncio.wait_for(reader_task, timeout=timeout)
+                    ticker_task.cancel()
+                    await proc.wait()  # Warte auf Prozess-Ende
+                except asyncio.TimeoutError:
+                    ticker_task.cancel()
+                    proc.kill()
+                    raise
+
+                stderr_data = await proc.stderr.read()
                 elapsed = (datetime.now() - start).total_seconds()
-                output = stdout.decode().strip()
-                if stderr.decode().strip():
-                    output += f"\n\n--- STDERR ---\n{stderr.decode().strip()}"
+                output = "\n".join(output_lines).strip()
+                if stderr_data.decode().strip():
+                    output += f"\n\n--- STDERR ---\n{stderr_data.decode().strip()}"
 
             # State aktualisieren
             self._state.setdefault(task_id, {"run_count": 0})
@@ -268,8 +325,10 @@ class TaskScheduler:
                 "last_duration_seconds": round(elapsed, 1),
                 "last_error": f"Timeout nach {timeout}s",
             })
-            await self.send_message(
-                f"⏰❌ Scheduler: Task '{description}' Timeout nach {timeout}s"
+            # Timeout nur loggen, NICHT im Chat melden (stört den User)
+            log.warning(
+                "⏰ Scheduler: Task '%s' Timeout nach %ds – keine Chat-Meldung",
+                task_id, timeout,
             )
 
         except Exception as e:
@@ -308,6 +367,37 @@ class TaskScheduler:
 
         finally:
             self._save_state()
+            self._persist_scheduler_request(task_id, task_config, agent, start)
+
+    def _persist_scheduler_request(self, task_id, task_config, agent, start):
+        """Append scheduler task execution to data/request_log.json."""
+        try:
+            log_file = Path(__file__).parent.parent / "data" / "request_log.json"
+            entries = []
+            if log_file.exists():
+                try:
+                    entries = json.loads(log_file.read_text())
+                except (json.JSONDecodeError, ValueError):
+                    entries = []
+
+            task_state = self._state.get(task_id, {})
+            entry = {
+                "id": None,
+                "timestamp": task_state.get("last_run", datetime.now().isoformat()),
+                "agent_id": agent.get("id", "?"),
+                "agent_name": agent.get("name", "?"),
+                "agent_emoji": agent.get("emoji", ""),
+                "job_type": task_config.get("type", "claude"),
+                "title": task_config.get("description", task_id)[:80],
+                "status": task_state.get("last_status", "error"),
+                "duration_seconds": task_state.get("last_duration_seconds"),
+                "source": "scheduler",
+            }
+            entries.append(entry)
+            entries = entries[-200:]
+            log_file.write_text(json.dumps(entries, indent=2, ensure_ascii=False, default=str))
+        except Exception as e:
+            log.warning("Scheduler request-log persist failed: %s", e)
 
     # ------------------------------------------------------------------ #
     #  Scheduler-Zyklus                                                    #

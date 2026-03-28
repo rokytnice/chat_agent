@@ -16,6 +16,7 @@ SCHEDULER_STATE = PROJECT_DIR / "data" / "scheduler_state.json"
 SESSIONS_FILE = PROJECT_DIR / "data" / "sessions.json"
 TRANSCRIPT_DIR = Path.home() / ".claude" / "projects" / "-home-aroc-projects-chat-agent"
 RETOUREN_FILE = Path.home() / "gdrive" / "5_Privat" / "retouren_tracking.json"
+REQUEST_LOG_FILE = PROJECT_DIR / "data" / "request_log.json"
 HASH_FILE = PROJECT_DIR / "data" / "dashboard_hash.txt"
 MIN_PUSH_INTERVAL = 300  # 5 minutes
 
@@ -151,6 +152,16 @@ def _build_activity_log(state):
     return entries[:50]
 
 
+def _build_request_log():
+    """Build request log from persistent request_log.json."""
+    data = _load_json(REQUEST_LOG_FILE)
+    if isinstance(data, list):
+        # Sort by timestamp desc, return last 100
+        data.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return data[:100]
+    return []
+
+
 def generate_status():
     """Generate the dashboard status JSON."""
     config = _load_json(AGENTS_CONFIG)
@@ -163,6 +174,7 @@ def generate_status():
         "sessions": _build_sessions(config),
         "retouren": _build_retouren(retouren),
         "activity_log": _build_activity_log(state),
+        "request_log": _build_request_log(),
     }
 
 
