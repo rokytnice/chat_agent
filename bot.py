@@ -264,6 +264,9 @@ class PipeQueue:
             else:
                 for i in range(0, len(output), 4000):
                     await message.reply_text(output[i:i + 4000])
+
+            # Output im Job speichern für Request-Log
+            job["output"] = output[:2000] if output else ""
         finally:
             progress_event.set()
             ticker_task.cancel()
@@ -297,6 +300,8 @@ class PipeQueue:
                 "agent_emoji": agent.get("emoji", ""),
                 "job_type": job.get("job_type", "text"),
                 "title": job.get("title", "")[:80],
+                "prompt": job.get("prompt", "")[:500],
+                "output": job.get("output", "")[:2000],
                 "status": "success" if job.get("status") == "✅" else "error",
                 "duration_seconds": round(
                     (job.get("completed", datetime.now()) - job.get("started", datetime.now())).total_seconds(), 1

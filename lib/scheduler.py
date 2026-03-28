@@ -293,6 +293,7 @@ class TaskScheduler:
                 "last_status": "success",
                 "last_duration_seconds": round(elapsed, 1),
                 "last_error": None,
+                "last_output": output[:2000] if output else "",
             })
             self._state[task_id]["run_count"] = (
                 self._state[task_id].get("run_count", 0) + 1
@@ -432,6 +433,8 @@ class TaskScheduler:
                 "agent_emoji": agent.get("emoji", ""),
                 "job_type": task_config.get("type", "claude"),
                 "title": task_config.get("description", task_id)[:80],
+                "prompt": task_config.get("prompt", "")[:500],
+                "output": task_state.get("last_output", "")[:2000],
                 "status": task_state.get("last_status", "error"),
                 "duration_seconds": task_state.get("last_duration_seconds"),
                 "source": "scheduler",

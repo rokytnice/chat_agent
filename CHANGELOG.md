@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.1] - 2026-03-28
+### Neu
+- **Dashboard: Request-Inhalt aufklappbar** 📋
+  - Jeder Request-Log-Eintrag hat einen ▶ Button zum Aufklappen
+  - Zeigt den vollen Request-Text (📨) und die Antwort (📤)
+  - Gilt fuer User-Requests und Scheduler-Tasks
+  - Prompt (max 500 Zeichen) und Output (max 2000 Zeichen) werden gespeichert
+
 ## [0.28.0] - 2026-03-28
 ### Neu
 - **Aktien-Crash-Monitor: Multi-Source mit 4 Datenquellen** 🔍

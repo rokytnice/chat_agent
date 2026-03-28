@@ -146,8 +146,16 @@
 
   /* Request Log */
   .request-log { max-height: 500px; overflow-y: auto; }
-  .req-entry { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; display: flex; gap: 0.75rem; align-items: center; }
+  .req-entry { padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
   .req-entry:hover { background: rgba(88,166,255,0.05); }
+  .req-row { display: flex; gap: 0.75rem; align-items: center; }
+  .req-expand { background: rgba(210,153,34,0.12); border: 1px solid rgba(210,153,34,0.3); color: var(--orange); width: 22px; height: 22px; border-radius: 50%; cursor: pointer; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; }
+  .req-expand:hover { background: rgba(210,153,34,0.25); transform: scale(1.1); }
+  .req-expand.active { background: var(--orange); color: var(--bg); }
+  .req-detail { display: none; background: rgba(210,153,34,0.04); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; margin-top: 0.4rem; font-size: 0.75rem; line-height: 1.5; animation: fadeIn 0.2s ease; }
+  .req-detail.show { display: block; }
+  .req-detail-label { color: var(--orange); font-weight: 600; font-size: 0.7rem; text-transform: uppercase; margin-bottom: 0.2rem; }
+  .req-detail-text { color: var(--dim); white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto; }
   .req-time { color: var(--dim); white-space: nowrap; min-width: 130px; font-size: 0.75rem; }
   .req-agent { min-width: 30px; text-align: center; }
   .req-type { min-width: 50px; font-size: 0.7rem; padding: 1px 6px; border-radius: 8px; text-align: center; background: rgba(88,166,255,0.1); color: var(--accent); }
@@ -332,6 +340,18 @@ function toggleTaskInfo(id) {
   }
 }
 
+function toggleReqDetail(i) {
+  const panel = document.getElementById('req-detail-' + i);
+  const btn = document.getElementById('req-btn-' + i);
+  if (panel) {
+    panel.classList.toggle('show');
+    if (btn) {
+      btn.classList.toggle('active');
+      btn.textContent = panel.classList.contains('show') ? '▼' : '▶';
+    }
+  }
+}
+
 function renderAgents(agents) {
   const grid = document.getElementById('agents-grid');
   if (!agents || agents.length === 0) { grid.innerHTML = '<div class="loading">Keine Agenten</div>'; return; }
@@ -504,7 +524,7 @@ function renderRequests(requests) {
   const el = document.getElementById('request-log');
   if (!requests || requests.length === 0) { el.innerHTML = '<div class="loading">Noch keine Requests aufgezeichnet</div>'; return; }
 
-  el.innerHTML = requests.map(r => {
+  el.innerHTML = requests.map((r, i) => {
     const ts = r.timestamp ? new Date(r.timestamp) : null;
     const timeStr = ts ? ts.toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '-';
     const typeCls = r.job_type === 'photo' ? 'req-type req-type-photo' : (r.job_type === 'bash' ? 'req-type req-type-bash' : 'req-type');
@@ -512,13 +532,25 @@ function renderRequests(requests) {
     const statusTxt = r.status === 'success' ? 'OK' : 'ERR';
     const dur = r.duration_seconds != null ? r.duration_seconds.toFixed(1) + 's' : '-';
     const srcIcon = r.source === 'scheduler' ? '⏰' : '💬';
+    const hasDetail = r.prompt || r.output;
+    const expandBtn = hasDetail ? `<button class="req-expand" onclick="toggleReqDetail(${i})" id="req-btn-${i}">▶</button>` : '';
+    const prompt = (r.prompt || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const output = (r.output || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const detail = hasDetail ? `<div class="req-detail" id="req-detail-${i}">
+      ${prompt ? `<div class="req-detail-label">📨 Request</div><div class="req-detail-text">${prompt}</div>` : ''}
+      ${output ? `<div class="req-detail-label" style="margin-top:0.5rem">📤 Antwort</div><div class="req-detail-text">${output}</div>` : ''}
+    </div>` : '';
     return `<div class="req-entry">
-      <span class="req-time">${srcIcon} ${timeStr}</span>
-      <span class="req-agent" title="${r.agent_name || ''}">${r.agent_emoji || '🤖'}</span>
-      <span class="${typeCls}">${r.job_type || 'text'}</span>
-      <span class="req-title" title="${(r.title || '').replace(/"/g, '&quot;')}">${r.title || '-'}</span>
-      <span class="req-duration">${dur}</span>
-      <span class="${statusCls}">${statusTxt}</span>
+      <div class="req-row">
+        ${expandBtn}
+        <span class="req-time">${srcIcon} ${timeStr}</span>
+        <span class="req-agent" title="${r.agent_name || ''}">${r.agent_emoji || '🤖'}</span>
+        <span class="${typeCls}">${r.job_type || 'text'}</span>
+        <span class="req-title" title="${(r.title || '').replace(/"/g, '&quot;')}">${r.title || '-'}</span>
+        <span class="req-duration">${dur}</span>
+        <span class="${statusCls}">${statusTxt}</span>
+      </div>
+      ${detail}
     </div>`;
   }).join('');
 }
