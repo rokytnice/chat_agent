@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-03-28T07:44:28.669142",
+  "last_updated": "2026-03-28T07:58:36.347212",
   "agents": [
     {
       "id": "assistant",
@@ -336,7 +336,7 @@
       "name": "Aktien-Crash-Monitor",
       "emoji": "📉",
       "status": "success",
-      "description": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) die wichtigsten Aktienindizes und Einzelaktien auf Kurseinbrüche >= 20%.\n\n## Überwachte Märkte\n- 8 Indizes: S&P 500, Dow Jones, NASDAQ, DAX 40, Euro Stoxx 50, FTSE 100, Nikkei 225, Hang Seng\n- 10 US-Aktien: Apple, Micro | Tools: bash | Modell: opus",
+      "description": "Du bist der Aktien-Crash-Monitor. Du überwachst alle 30 Minuten (Mo-Fr 6-22 Uhr) über 1.000 Aktien aus 8 großen Indizes auf Kurseinbrüche >= 20%.\n\n## Überwachte Indizes (alle Einzelaktien)\n- S&P 500 (~503 Aktien)\n- NASDAQ-100 (~101 Aktien)\n- DAX 40 (40 Aktien)\n- MDAX (50 Aktien)\n- FTSE 100 (100 Akti | Tools: bash | Modell: opus",
       "tools": [
         "bash"
       ],
@@ -344,18 +344,33 @@
       "tasks": [
         {
           "id": "stock_crash_check",
-          "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr)",
+          "description": "Aktien-Crash-Check alle 30 Min (Mo-Fr 6-22 Uhr, ~1.000 Ticker)",
           "cron": "*/30 6-22 * * 1-5",
           "enabled": true,
           "task_type": "bash",
           "silent": true,
-          "timeout": 120,
+          "timeout": 300,
           "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor",
           "last_run": "2026-03-27T22:30:06.224005",
           "last_status": "success",
           "last_error": null,
           "last_duration_seconds": 1.4,
           "run_count": 11
+        },
+        {
+          "id": "stock_ticker_update",
+          "description": "Ticker-Liste monatlich aktualisieren (1. des Monats, 3 Uhr)",
+          "cron": "0 3 1 * *",
+          "enabled": true,
+          "task_type": "bash",
+          "silent": true,
+          "timeout": 120,
+          "detail": "cd /home/aroc/projects/chat_agent && venv/bin/python -m lib.stock_monitor --update",
+          "last_run": null,
+          "last_status": null,
+          "last_error": null,
+          "last_duration_seconds": null,
+          "run_count": 0
         }
       ]
     }
@@ -366,8 +381,8 @@
       "name": "Persönlicher Assistent",
       "emoji": "🤖",
       "session_id": "dbd18ba8",
-      "transcript_mb": 65.4,
-      "last_activity": "2026-03-28T07:44:24.552970"
+      "transcript_mb": 65.7,
+      "last_activity": "2026-03-28T07:58:33.136462"
     },
     {
       "agent_id": "taskprep",
