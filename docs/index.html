@@ -47,6 +47,19 @@
   .desc-tag-model { background: rgba(188,140,255,0.12); color: var(--purple); }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 
+  /* Task Info */
+  .task-info-btn { background: rgba(210,153,34,0.12); border: 1px solid rgba(210,153,34,0.3); color: var(--orange); width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 0.65rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; margin-left: 0.3rem; flex-shrink: 0; vertical-align: middle; }
+  .task-info-btn:hover { background: rgba(210,153,34,0.3); transform: scale(1.1); }
+  .task-info-btn.active { background: var(--orange); color: var(--bg); }
+  .task-detail { display: none; background: rgba(210,153,34,0.05); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; margin-top: 0.3rem; font-size: 0.75rem; color: var(--dim); line-height: 1.45; animation: fadeIn 0.2s ease; }
+  .task-detail.show { display: block; }
+  .task-detail .td-prompt { color: var(--text); white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.7rem; margin-bottom: 0.4rem; }
+  .task-detail .td-tags { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .td-tag { padding: 1px 6px; border-radius: 5px; font-size: 0.65rem; }
+  .td-tag-type { background: rgba(88,166,255,0.12); color: var(--accent); }
+  .td-tag-silent { background: rgba(139,148,158,0.15); color: var(--dim); }
+  .td-tag-timeout { background: rgba(210,153,34,0.12); color: var(--orange); }
+
   .badge { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
   .badge-success { background: rgba(63,185,80,0.15); color: var(--green); }
   .badge-error { background: rgba(248,81,73,0.15); color: var(--red); }
@@ -310,6 +323,15 @@ function toggleAgentInfo(id) {
   }
 }
 
+function toggleTaskInfo(id) {
+  const panel = document.getElementById('td-' + id);
+  const btn = document.getElementById('tbtn-' + id);
+  if (panel) {
+    panel.classList.toggle('show');
+    btn.classList.toggle('active');
+  }
+}
+
 function renderAgents(agents) {
   const grid = document.getElementById('agents-grid');
   if (!agents || agents.length === 0) { grid.innerHTML = '<div class="loading">Keine Agenten</div>'; return; }
@@ -317,9 +339,15 @@ function renderAgents(agents) {
   grid.innerHTML = agents.map(a => {
     const tasks = (a.tasks || []).map(t => {
       const errHtml = t.last_error ? `<div class="task-error">${t.last_error.substring(0, 120)}</div>` : '';
+      const hasDetail = t.detail && t.detail.length > 0;
+      const infoBtnHtml = hasDetail ? `<button class="task-info-btn" id="tbtn-${t.id}" onclick="toggleTaskInfo('${t.id}')" title="Details">i</button>` : '';
+      const silentTag = t.silent ? '<span class="td-tag td-tag-silent">silent</span>' : '';
+      const typeTag = `<span class="td-tag td-tag-type">${t.task_type || 'claude'}</span>`;
+      const timeoutTag = `<span class="td-tag td-tag-timeout">timeout: ${t.timeout || 300}s</span>`;
+      const detailHtml = hasDetail ? `<div class="task-detail" id="td-${t.id}"><div class="td-prompt">${t.detail.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="td-tags">${typeTag}${silentTag}${timeoutTag}</div></div>` : '';
       return `<li class="task">
         <div class="task-name">
-          <span>${t.description || t.id}</span>
+          <span>${t.description || t.id}${infoBtnHtml}</span>
           <span class="badge ${badgeClass(t.last_status)}">${statusLabel(t.last_status)}</span>
         </div>
         <div class="task-meta">
@@ -328,6 +356,7 @@ function renderAgents(agents) {
           <span>Runs: ${t.run_count || 0}</span>
           <span title="${t.cron || ''}">&#128337; ${t.cron || '-'}</span>
         </div>
+        ${detailHtml}
         ${errHtml}
       </li>`;
     }).join('');

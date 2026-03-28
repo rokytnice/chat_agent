@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.25.4] - 2026-03-28
+### Hinzugefügt
+- **Info-Buttons fuer einzelne Tasks im Dashboard** ℹ️
+  - Jeder Task hat jetzt einen orangenen "i"-Button neben der Beschreibung
+  - Klick zeigt den vollstaendigen Prompt/Befehl des Tasks (monospace, max 500 Zeichen)
+  - Tags zeigen Task-Typ (claude/bash), Silent-Modus und Timeout
+  - Funktioniert fuer alle Tasks inkl. Aktien-Crash-Monitor, Chrome Health etc.
+  - Dashboard-Publisher liefert jetzt task_type, silent, timeout und detail pro Task
+
 ## [0.25.3] - 2026-03-28
 ### Hinzugefügt
 - **Warteschlange im Dashboard** ⏳

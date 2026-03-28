@@ -42,11 +42,21 @@ def _build_agents(config, state):
         tasks = []
         for t in enabled_tasks:
             task_state = state.get(t["id"], {})
+            # Build task detail text from prompt
+            prompt_text = t.get("prompt", "")
+            task_type = t.get("type", "claude")
+            silent = t.get("silent", False)
+            timeout = t.get("timeout_seconds", 300)
+            detail = prompt_text[:500] if prompt_text else ""
             tasks.append({
                 "id": t["id"],
                 "description": t.get("description", t["id"]),
                 "cron": t.get("cron", ""),
                 "enabled": True,
+                "task_type": task_type,
+                "silent": silent,
+                "timeout": timeout,
+                "detail": detail,
                 "last_run": task_state.get("last_run"),
                 "last_status": task_state.get("last_status"),
                 "last_error": task_state.get("last_error"),
